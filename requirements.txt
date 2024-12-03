@@ -326,3 +326,4 @@ yarl @ file:///private/var/folders/sy/f16zz6x50xz3113nwtb9bvq00000gp/T/abs_e1e9t
 zict @ file:///Users/builder/cbouss/perseverance-python-buildout/croot/zict_1699263607025/work
 zipp @ file:///Users/builder/cbouss/perseverance-python-buildout/croot/zipp_1707361439201/work
 zope.interface @ file:///Users/builder/cbouss/perseverance-python-buildout/croot/zope.interface_1699251096669/work
+flask==3.1.0

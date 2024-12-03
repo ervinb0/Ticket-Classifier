@@ -1,2 +1,32 @@
-# Python virtual environment
+# Virtual environment
 project_ai_course/
+project_env/
+.env
+
+# Byte-compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+
+
+
+# Models and vectorizers
+models/*
+*.pkl
+!models/text_pre_processor.py
+
+# Database and logs
+*.db
+*.sqlite3
+*.log
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# IDE/Editor files
+.vscode/
+.idea/
+
+# OS-specific files
+.DS_Store
+
