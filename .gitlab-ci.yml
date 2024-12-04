@@ -1,0 +1,24 @@
+stages:
+  - test
+
+variables:
+  # Define the Python version to use
+  PYTHON_VERSION: "3.12.7"
+  # Use virtualenv to isolate dependencies
+  VIRTUAL_ENV: "project_env"
+
+before_script:
+  # Install dependencies
+  - python -m venv $VIRTUAL_ENV
+  - source $VIRTUAL_ENV/bin/activate
+  - pip install --upgrade pip
+  - pip install -r requirements.txt # Install dependencies from requirements.txt
+
+test:
+  stage: test
+  script:
+    # Run tests with pytest and generate coverage report
+    - pytest --cov=app --cov-report=term-missing # Run pytest and show coverage
+  after_script:
+    # Clean up any environment variables or logs
+    - deactivate
