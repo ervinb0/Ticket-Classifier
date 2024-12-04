@@ -84,7 +84,7 @@ def correct():
     if not success:
         return jsonify({"error": "Prediction ID not found"}), 404
 
-    return jsonify({"message": "Label corrected successfully", "id": issue_id})
+    return jsonify({"message": "Label corrected successfully", "id": issue_id, "corrected_label": corrected_label_num })
 
 
 if __name__ == '__main__':
