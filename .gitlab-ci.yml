@@ -7,17 +7,21 @@ variables:
   # Use virtualenv to isolate dependencies
   VIRTUAL_ENV: "project_env"
 
-before_script:
-  # Install dependencies
-  - conda create -n $VIRTUAL_ENV anaconda
-  #- python -m venv
-  #- source $VIRTUAL_ENV/bin/activate
-  - conda activate $VIRTUAL_ENV
-  - pip install --upgrade pip
-  - pip install -r requirements.txt # Install dependencies from requirements.txt
-
 test:
   stage: test
+  image: continuumio/miniconda3 # Docker image with Conda
+  before_script:
+    - conda init bash # Initialize Conda for the shell
+    - source ~/.bashrc # Reload shell configuration
+    # Install dependencies
+    - conda create -n $VIRTUAL_ENV python=3.12.7 --yes
+    #- python -m venv
+    #- source $VIRTUAL_ENV/bin/activate
+    - conda activate $VIRTUAL_ENV
+    - pip install --upgrade pip
+    #- pip install -r requirements.txt # Install dependencies from requirements.txt
+    - conda install --file requirements.txt --yes
+
   script:
     # Run tests with pytest and generate coverage report
     - pytest --cov=app --cov-report=term-missing # Run pytest and show coverage
