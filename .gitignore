@@ -9,11 +9,6 @@ __pycache__/
 *$py.class
 
 
-
-# Models and vectorizers
-models/model_utils.py
-*.pkl
-
 # Database and logs
 *.db
 *.sqlite3
