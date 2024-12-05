@@ -11,10 +11,8 @@ __pycache__/
 
 
 # Models and vectorizers
-models/*
+models/model_utils.py
 *.pkl
-!models/text_pre_processor.py
-!models/__init__.py
 
 # Database and logs
 *.db
