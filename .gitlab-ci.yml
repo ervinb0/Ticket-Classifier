@@ -1,30 +1,17 @@
 stages:
   - test
 
-variables:
-  # Define the Python version to use
-  PYTHON_VERSION: "3.12.7"
-  # Use virtualenv to isolate dependencies
-  VIRTUAL_ENV: "project_env"
-
 test:
   stage: test
-  image: continuumio/miniconda3 # Docker image with Conda
+  image: python:3.10 # Use an official Python image
+  variables:
+    VIRTUAL_ENV: venv
   before_script:
-    - conda init bash # Initialize Conda for the shell
-    - source ~/.bashrc # Reload shell configuration
-    # Install dependencies
-    - conda create -n $VIRTUAL_ENV python=3.12.7 --yes
-    #- python -m venv
-    #- source $VIRTUAL_ENV/bin/activate
-    - conda activate $VIRTUAL_ENV
+    - python -m venv $VIRTUAL_ENV
+    - source $VIRTUAL_ENV/bin/activate
     - pip install --upgrade pip
-    #- pip install -r requirements.txt # Install dependencies from requirements.txt
-    - conda install --file requirements.txt --yes
-
+    - pip install -r requirements.txt
   script:
-    # Run tests with pytest and generate coverage report
-    - pytest --cov=app --cov-report=term-missing # Run pytest and show coverage
+    - pytest --cov=app --cov-report=xml
   after_script:
-    # Clean up any environment variables or logs
-    - conda deactivate
+    - deactivate
