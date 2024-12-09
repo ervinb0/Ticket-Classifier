@@ -14,4 +14,4 @@ test:
   script:
     - pytest --cov=app --cov-report=xml
   after_script:
-    - deactivate $VIRTUAL_ENV
+    - deactivate
