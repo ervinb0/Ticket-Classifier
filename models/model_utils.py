@@ -1,4 +1,8 @@
 import joblib
+import os
+vectorizer_path = os.getenv("VECTORIZER_PATH", "vectorizers/vectorizer10k2.pkl")
+model_path = os.getenv("MODEL_PATH", "trained_models/model2.pkl")
+
 #from .text_pre_processor import preprocess_text
 
 #model path = "/Users/ervinballa/Desktop/P_AI_Eng/ws2024-principles-of-ai-engineering/trained_models/model2.pkl"
@@ -11,8 +15,8 @@ def load_model_and_vectorizer():
         model: The trained classification model.
     """
     try:
-        vectorizer = joblib.load('/vectorizers/vectorizer10k2.pkl')
-        model = joblib.load('/trained_models/model2.pkl')
+        vectorizer = joblib.load(vectorizer_path)
+        model = joblib.load(model_path)
         return vectorizer, model
     except Exception as e:
         raise RuntimeError(f"Error loading model or vectorizer: {e}")
