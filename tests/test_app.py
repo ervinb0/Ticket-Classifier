@@ -1,6 +1,6 @@
 import pytest
 import json
-from app import app  # Import your Flask app
+from app3 import app  # Import your Flask app
 
 # Mapping of prediction integers to labels
 LABEL_MAPPING = {"bug": 0, "enhancement": 1, "question": 2}
