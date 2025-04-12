@@ -45,33 +45,44 @@ def remove_stopwords_lemmatizer(text):
     return processed_text
 
 def is_english(text):
-    """
-    Checks if the input text is in English.
-    Returns True if English, otherwise False.
-    """
     try:
-        return detect(text) == 'en'
-    except:
-        return False  # Return False if detection fails
+        # Split text into words
+        words = text.split()
+        # Store English words
+        english_words = []
+        
+        for word in words:
+            try:
+                # Check if the word is in English
+                if detect(word) == 'en':
+                    english_words.append(word)
+            except:
+                # If language detection fails for a word, skip it
+                continue
+        
+        # Join the English words back together
+        filtered_text = ' '.join(english_words)
+        
+        # Return the filtered text if there are any English words, otherwise return None
+        return filtered_text if english_words else None
+        
+    except Exception as e:
+        print(f"Error in language detection: {e}")
+        return None
 
 
 def preprocess_text(text):
-    """
-    Preprocess the text by applying the necessary steps.
-    Args:
-        text (str): The input text.
-    Returns:
-        str: The preprocessed text.
-    """
-    # Check if text is in English
-    if not is_english(text):
-        raise ValueError("The input text is not in English.")
-    
+   
     # Lowercase the text
     text = text.lower()
+    
+    # Check if text is English
+    filtered_text = is_english(text)
+    if filtered_text is None:
+        return None
 
     # Remove noise (special characters and numbers)
-    text = remove_noise(text)
+    text = remove_noise(filtered_text)
         
     # Remove emoticons and links
     text = remove_emojis_and_links(text)
