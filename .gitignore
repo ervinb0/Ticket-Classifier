@@ -25,3 +25,9 @@ __pycache__/
 .DS_Store
 
 .coverage
+
+#dataseta
+datasets/dataset.csv
+pre_processed_dataset.csv
+trained_models/dummy_model.pkl
+trained_models/model2.pkl
