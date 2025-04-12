@@ -8,10 +8,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-
+*app3.py
 # Database and logs
-#*.db
-#*.sqlite3
+*.db
+*.sqlite3
 *.log
 
 # Jupyter Notebook checkpoints
