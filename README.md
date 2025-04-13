@@ -24,17 +24,6 @@ A machine learning web app that classifies Jira tickets into **Bug**, **Enhancem
      http://127.0.0.1:5000
 4. Enter the Jira ticket title and description to get a prediction.
 
-📂 Project Structure
-
-jira-ticket-classifier/
-├── static/
-│   └── style.css
-├── templates/
-│   └── index.html
-├── model/
-│   └── random_forest_model.pkl
-├── app.py
-└── requirements.txt
 
 ✅ Todo
 
