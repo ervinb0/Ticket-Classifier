@@ -26,8 +26,9 @@ __pycache__/
 
 .coverage
 
-#dataseta
-datasets/dataset.csv
+#datasets
+dataset.csv
+dataset2.csv
 pre_processed_dataset.csv
-trained_models/dummy_model.pkl
-trained_models/model2.pkl
+dummy_model.pkl
+model2.pkl
