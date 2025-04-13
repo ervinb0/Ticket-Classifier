@@ -26,9 +26,9 @@ __pycache__/
 
 .coverage
 
-#datasets
-dataset.csv
-dataset2.csv
-pre_processed_dataset.csv
-dummy_model.pkl
-model2.pkl
+
+
+# Large files
+*.pkl
+*.csv
+models/
