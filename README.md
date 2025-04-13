@@ -25,7 +25,7 @@ A machine learning web app that classifies Jira tickets into **Bug**, **Enhancem
 4. Enter the Jira ticket title and description to get a prediction.
 
 
-✅ Todo
+## ✅ Todo
 
 Deploy to Render/Heroku
 Add support for bulk predictions via file upload
