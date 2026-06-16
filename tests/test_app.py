@@ -1,9 +1,8 @@
 import pytest
 import json
-from app3 import app  # Import your Flask app
+from app import app  # Import Flask app
 
-# Mapping of prediction integers to labels
-LABEL_MAPPING = {"bug": 0, "enhancement": 1, "question": 2}
+VALID_LABELS = {"bug", "enhancement", "question"}
 
 @pytest.fixture
 def client():
@@ -29,7 +28,7 @@ def test_predict(client):
     # Assert that the response has the correct keys and values
     assert "id" in response_json
     assert "predicted_label" in response_json
-    assert response_json["predicted_label"] in LABEL_MAPPING.keys()
+    assert response_json["predicted_label"] in VALID_LABELS
 
 def test_correct(client):
     # Test the correct endpoint
@@ -42,14 +41,11 @@ def test_correct(client):
     response = client.post('/api/predict', json=prediction_data)
     response_json = json.loads(response.data)
     issue_id = response_json["id"]
-    predicted_label = response_json["predicted_label"]
-
     # Now, correct the prediction
     correction_data = {
         "id": issue_id,
-        "corrected_label": "question"  # Correcting to a question (2) just for testing
+        "corrected_label": "question"
     }
-    x = correction_data["corrected_label"]
 
     response = client.post('/api/correct', json=correction_data)
 
@@ -59,4 +55,4 @@ def test_correct(client):
     # Assert that the correction was successfully stored (Check the response or DB)
     response_json = json.loads(response.data)
     assert response_json["id"] == issue_id
-    assert response_json["corrected_label"] == LABEL_MAPPING[x]
+    assert response_json["corrected_label"] == correction_data["corrected_label"]
