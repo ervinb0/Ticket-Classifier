@@ -4,88 +4,90 @@ document.addEventListener("DOMContentLoaded", function () {
     const confirmBtn = document.getElementById("confirm-btn");
     const titleInput = document.getElementById("issue-title");
     const bodyInput = document.getElementById("issue-body");
-    const sidebar = document.getElementById("sidebar");
-    let predictedLabel = "";
+    const result = document.getElementById("result");
+    const labelsContainer = document.getElementById("labels");
+    const message = document.getElementById("message");
+    const LABELS = ["bug", "enhancement", "question"];
+    let predictionId = null;
     let selectedLabel = "";
-    let rawTitle = "";
-    let rawBody = "";
 
-    predictBtn.addEventListener("click", function () {
+    function showMessage(text, isError) {
+        message.textContent = text;
+        message.className = isError ? "error" : "success";
+    }
+
+    function hideMessage() {
+        message.className = "hidden";
+    }
+
+    async function postJson(url, payload) {
+        const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || `Request failed (${response.status})`);
+        }
+        return data;
+    }
+
+    predictBtn.addEventListener("click", async function () {
         const title = titleInput.value.trim();
         const body = bodyInput.value.trim();
+        hideMessage();
 
         if (!title && !body) {
-            alert("Please enter a title or body.");
+            showMessage("Please enter a title or body.", true);
             return;
         }
 
-        fetch("http://127.0.0.1:5000/api/predict", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ title, body })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.error) {
-                alert(data.error);
-                return;
-            }
-
-            predictedLabel = data.prediction;
-            selectedLabel = predictedLabel;
-            rawTitle = data.title;
-            rawBody = data.body;
-
-            updateSidebar(data.probabilities);
-        })
-        .catch(error => console.error("Error:", error));
+        predictBtn.disabled = true;
+        try {
+            const data = await postJson("api/predict", { title, body });
+            predictionId = data.id;
+            selectedLabel = data.predicted_label;
+            renderLabels(data.probabilities);
+        } catch (error) {
+            result.className = "hidden";
+            showMessage(error.message, true);
+        } finally {
+            predictBtn.disabled = false;
+        }
     });
 
-    function updateSidebar(probabilities) {
-        sidebar.innerHTML = "";
-        sidebar.style.display = "block";
-        const labels = ["bug", "enhancement", "question"];
+    function renderLabels(probabilities) {
+        labelsContainer.innerHTML = "";
 
-        labels.forEach(label => {
-            const button = document.createElement("button");
-            button.textContent = `${label} (${(probabilities[label] * 100).toFixed(1)}%)`;
-            button.className = `label-btn ${label === predictedLabel ? "selected" : ""}`;
-            button.style.backgroundColor = getColor(probabilities[label]);
-            button.addEventListener("click", () => {
-                document.querySelectorAll(".label-btn").forEach(btn => btn.classList.remove("selected"));
-                button.classList.add("selected");
+        LABELS.forEach(label => {
+            const box = document.createElement("button");
+            box.type = "button";
+            box.textContent = `${label} (${(probabilities[label] * 100).toFixed(1)}%)`;
+            box.className = `label-box ${label === selectedLabel ? "selected" : ""}`;
+            box.addEventListener("click", () => {
+                labelsContainer.querySelectorAll(".label-box").forEach(b => b.classList.remove("selected"));
+                box.classList.add("selected");
                 selectedLabel = label;
             });
-            sidebar.appendChild(button);
+            labelsContainer.appendChild(box);
         });
 
-        confirmBtn.style.display = "block";
+        result.className = "";
     }
 
-    confirmBtn.addEventListener("click", function () {
-        fetch("http://127.0.0.1:5000/api/correct", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                title: rawTitle,
-                body: rawBody,
-                predicted_label: predictedLabel,
-                corrected_label: selectedLabel
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            alert("Label confirmed/corrected successfully.");
-            sidebar.style.display = "none";
+    confirmBtn.addEventListener("click", async function () {
+        confirmBtn.disabled = true;
+        try {
+            await postJson("api/correct", { id: predictionId, corrected_label: selectedLabel });
+            showMessage(`Saved label "${selectedLabel}". Thanks!`, false);
+            result.className = "hidden";
             titleInput.value = "";
             bodyInput.value = "";
-        })
-        .catch(error => console.error("Error:", error));
+        } catch (error) {
+            showMessage(error.message, true);
+        } finally {
+            confirmBtn.disabled = false;
+        }
     });
-
-    function getColor(probability) {
-        if (probability > 0.7) return "green";
-        if (probability > 0.4) return "yellow";
-        return "red";
-    }
 });

@@ -1,35 +1,33 @@
-# Virtual environment
-project_ai_course/
+# Virtual environments
+.venv/
+venv/
 project_env/
+project_ai_course/
 .env
 
-# Byte-compiled files
+# Python
 __pycache__/
 *.py[cod]
-*$py.class
+.pytest_cache/
+.coverage
+coverage.xml
 
-*app3.py
-# Database and logs
+# Data and model artifacts (too large for git; see README > Data)
+datasets/
+artifacts/
+*.pkl
+*.joblib
+
+# Local databases and logs
 *.db
 *.sqlite3
 *.log
 
-# Jupyter Notebook checkpoints
+# Notebooks
 .ipynb_checkpoints/
+archive/
 
-# IDE/Editor files
+# IDE / OS
 .vscode/
 .idea/
-
-# OS-specific files
 .DS_Store
-
-.coverage
-
-
-
-# Large files
-*.pkl
-*.csv
-models/
-archive/

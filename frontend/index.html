@@ -3,31 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Jira Ticket Classifier</title>
+    <title>Issue Classifier</title>
     <link rel="stylesheet" href="static/css/styles.css" />
   </head>
   <body>
     <div class="container">
-      <h1>Jira Ticket Classifier</h1>
-      <input type="text" id="title" placeholder="Enter issue title..." />
-      <textarea
-        id="description"
-        placeholder="Enter issue description..."
-      ></textarea>
+      <h1>Issue Classifier</h1>
+      <p class="subtitle">Classifies a ticket as bug, enhancement or question.</p>
+      <input type="text" id="issue-title" placeholder="Enter issue title..." />
+      <textarea id="issue-body" placeholder="Enter issue description..."></textarea>
       <button id="predict-btn">Predict</button>
-      <div id="error-message" class="hidden"></div>
-      <div id="sidebar" class="hidden">
-        <h2>Predicted Category</h2>
-        <div class="labels">
-          <div id="bug" class="label-box" data-label="bug">Bug</div>
-          <div id="enhancement" class="label-box" data-label="enhancement">
-            Enhancement
-          </div>
-          <div id="question" class="label-box" data-label="question">
-            Question
-          </div>
-        </div>
-        <button id="confirm-btn">Confirm/Correct</button>
+      <div id="message" class="hidden"></div>
+      <div id="result" class="hidden">
+        <h2>Predicted category</h2>
+        <p class="hint">Click a label to correct it, then confirm.</p>
+        <div id="labels" class="labels"></div>
+        <button id="confirm-btn">Confirm label</button>
       </div>
     </div>
     <script src="static/js/script.js"></script>
