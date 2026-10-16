@@ -3,7 +3,8 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh;
+    min-height: 100vh;
+    margin: 0;
     background-color: #f4f4f4;
 }
 .container {
@@ -16,6 +17,7 @@ body {
 }
 input, textarea {
     width: 100%;
+    box-sizing: border-box;
     margin: 10px 0;
     padding: 10px;
     border: 1px solid #ccc;
@@ -33,38 +35,55 @@ button {
     display: none;
 }
 
-#sidebar {
-    display: none; /* Hide initially */
-    margin-top: 20px;
-    padding: 10px;
-    background: #ffffff;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
-    position: relative;
-    width: 100%;
+.subtitle, .hint {
+    color: #555;
+    font-size: 0.9em;
 }
 
-#sidebar.visible {
-    display: block; /* Show when needed */
+#result {
+    margin-top: 20px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+#message {
+    margin-top: 12px;
+    padding: 8px;
+    border-radius: 4px;
+}
+
+#message.error {
+    background: #fde2e2;
+    color: #8a1f1f;
+}
+
+#message.success {
+    background: #e2f5e5;
+    color: #1f6b2c;
 }
 
 .labels {
     display: flex;
     justify-content: space-around;
-    margin-top: 10px;
+    gap: 8px;
+    margin: 10px 0;
 }
 
 .label-box {
     padding: 10px;
     border: 1px solid #ccc;
-    cursor: pointer;
+    background: white;
+    color: black;
     border-radius: 4px;
-    width: 30%;
-    text-align: center;
+    width: 32%;
 }
 
 .label-box.selected {
     background-color: lightblue;
 }
 
+button:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
