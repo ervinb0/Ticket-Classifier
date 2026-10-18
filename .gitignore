@@ -31,3 +31,6 @@ archive/
 .vscode/
 .idea/
 .DS_Store
+
+#MLflow
+mlruns/
