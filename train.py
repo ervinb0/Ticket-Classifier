@@ -10,6 +10,7 @@ run does, once you have picked the model on the validation set.
 The vectorizer and model are saved together, so they can never get out of sync.
 """
 import argparse
+import hashlib
 import json
 import os
 from datetime import datetime, timezone
@@ -27,6 +28,7 @@ from sklearn.metrics import ConfusionMatrixDisplay, classification_report
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 
+import models.text_pre_processor as text_pre_processor
 from models.text_pre_processor import preprocess_text
 
 REQUIRED_COLUMNS = {"issue_label", "issue_title", "issue_body"}
@@ -60,13 +62,35 @@ def load_dataset(path):
     return df
 
 
-def preprocess_all(texts, cache_path):
-    """Preprocessing is the slow step, so cache it and use all CPU cores."""
+def remove_duplicates(df, text):
+    """
+    Drop texts that appear with more than one label (label noise), then keep one
+    copy of every remaining duplicate, so no issue can be in train and validation.
+    Texts count as equal when they only differ in case, digits or punctuation.
+    """
+    key = text.str.lower().str.replace(r"[\W\d_]+", " ", regex=True).str.strip()
+    conflicting = df.groupby(key)["issue_label"].transform("nunique") > 1
+    duplicate = key.duplicated() & ~conflicting
+
+    keep = ~conflicting & ~duplicate
+    stats = {"n_conflicting_removed": int(conflicting.sum()), "n_duplicates_removed": int(duplicate.sum())}
+    return df[keep], stats
+
+
+def preprocess_all(texts, cache_dir):
+    """
+    Preprocessing is the slow step, so cache it and use all CPU cores.
+    The cache file name depends on the input texts and on the preprocessing code,
+    so changing either one recomputes it instead of silently reusing old results.
+    """
+    with open(text_pre_processor.__file__, "rb") as f:
+        code_hash = hashlib.md5(f.read()).hexdigest()[:8]
+    data_hash = hashlib.md5(pd.util.hash_pandas_object(texts).values.tobytes()).hexdigest()[:8]
+    cache_path = os.path.join(cache_dir, f"processed_{data_hash}_{code_hash}.pkl")
+
     if os.path.exists(cache_path):
-        cached = pd.read_pickle(cache_path)
-        if len(cached) == len(texts):
-            print(f"Using cached preprocessed text from {cache_path}")
-            return cached
+        print(f"Using cached preprocessed text from {cache_path}")
+        return pd.read_pickle(cache_path)
 
     print(f"Preprocessing {len(texts)} issues (this takes a few minutes)...")
     with Pool() as pool:
@@ -113,26 +137,32 @@ def main():
                         help="Evaluate on the test set and save the model. Use once, at the end.")
     parser.add_argument("--data", default="datasets/sample1.csv")
     parser.add_argument("--out", default="artifacts/model.joblib")
-    parser.add_argument("--cache", default="datasets/cache/processed_text.pkl")
+    parser.add_argument("--cache-dir", default="datasets/cache")
     args = parser.parse_args()
 
     df = load_dataset(args.data)
     text = (df["issue_title"].fillna("") + " " + df["issue_body"].fillna("")).str.strip()
-    df["processed_text"] = preprocess_all(text, args.cache)
+    df["processed_text"] = preprocess_all(text, args.cache_dir)
 
-    before = len(df)
-    df = df[df["processed_text"].notna()]
-    print(f"Kept {len(df)} of {before} issues after language/empty filtering")
+    df, data_stats = remove_duplicates(df, text)
+    print(f"Removed {data_stats['n_conflicting_removed']} issues with conflicting labels "
+          f"and {data_stats['n_duplicates_removed']} duplicates, {len(df)} left")
 
-    X, y = df["processed_text"], df["issue_label"]
+    # 70% train / 15% validation / 15% test, stratified so "question" is present in every split.
+    # Split before the language filter, so changing the filter never moves issues between splits.
+    train_df, rest_df = train_test_split(df, test_size=0.3, random_state=SEED, stratify=df["issue_label"])
+    val_df, test_df = train_test_split(rest_df, test_size=0.5, random_state=SEED, stratify=rest_df["issue_label"])
 
-    # 70% train / 15% validation / 15% test, stratified so "question" is present in every split
-    X_train, X_rest, y_train, y_rest = train_test_split(
-        X, y, test_size=0.3, random_state=SEED, stratify=y
-    )
-    X_val, X_test, y_val, y_test = train_test_split(
-        X_rest, y_rest, test_size=0.5, random_state=SEED, stratify=y_rest
-    )
+    def usable(split_df):
+        """Drop issues the preprocessing rejected (non-English or empty)."""
+        split_df = split_df[split_df["processed_text"].notna()]
+        return split_df["processed_text"], split_df["issue_label"]
+
+    X_train, y_train = usable(train_df)
+    X_val, y_val = usable(val_df)
+    X_test, y_test = usable(test_df)
+    data_stats["n_filtered"] = len(df) - len(X_train) - len(X_val) - len(X_test)
+    print(f"Language/empty filter removed {data_stats['n_filtered']} issues")
 
     mlflow.set_experiment(EXPERIMENT_NAME)
     run_name = f"{args.model}-final" if args.final else args.model
@@ -144,6 +174,7 @@ def main():
             "seed": SEED,
             "n_train": len(X_train),
             "n_val": len(X_val),
+            **data_stats,
         })
 
         pipeline = build_pipeline(args.model, args.max_features)
