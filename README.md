@@ -20,11 +20,11 @@ title + body ──► preprocessing ──► TF-IDF ──► Random Forest �
 
 The model is trained on a 72k-issue sample of the **[NLBSE'22 Tool Competition](https://nlbse2022.github.io/tools/) issue report classification dataset**. That dataset contains 800k+ closed GitHub issues from public repositories, labeled bug / enhancement / question, created 2007–2021.
 
-| Label | Issues | Share |
-| --- | ---: | ---: |
-| bug | 36,110 | 50.0% |
+| Label       | Issues | Share |
+| ----------- | -----: | ----: |
+| bug         | 36,110 | 50.0% |
 | enhancement | 29,937 | 41.4% |
-| question | 6,242 | 8.6% |
+| question    |  6,242 |  8.6% |
 
 The dataset is not included in this repository. Place it at `datasets/sample1.csv`, with the columns `issue_label`, `issue_title` and `issue_body`.
 
@@ -32,12 +32,12 @@ The dataset is not included in this repository. Place it at `datasets/sample1.cs
 
 TF-IDF (10k features) + Random Forest (100 trees, balanced class weights). The data is split 70/15/15 (stratified) after removing non-English and empty issues (66,263 kept). Scores below are on the held-out **test set**:
 
-| Label | Precision | Recall | F1 |
-| --- | ---: | ---: | ---: |
-| bug | 0.785 | 0.862 | 0.822 |
-| enhancement | 0.778 | 0.812 | 0.795 |
-| question | 0.633 | **0.151** | 0.244 |
-| **macro avg** | 0.732 | 0.609 | **0.620** |
+| Label         | Precision |    Recall |        F1 |
+| ------------- | --------: | --------: | --------: |
+| bug           |     0.785 |     0.862 |     0.822 |
+| enhancement   |     0.778 |     0.812 |     0.795 |
+| question      |     0.633 | **0.151** |     0.244 |
+| **macro avg** |     0.732 |     0.609 | **0.620** |
 
 Accuracy is 0.779, but because the classes are imbalanced, **macro-F1 is the headline metric**.
 
@@ -78,3 +78,8 @@ Python, scikit-learn, NLTK, langdetect, Flask, SQLAlchemy, pytest, GitHub Action
 - [ ] Improve recall on `question`
 - [ ] Docker image and public deployment
 - [ ] Retraining pipeline that uses stored user corrections
+
+## Limitation and Future Features
+
+- Contributors are not used when making a prediction, however it is quite a strong signal in the data given that outsiders ask a lot more when compared to owners, contributors and members.
+- Add Contributor alongside issue title and issue body as it is a big indicator of the questions class.
