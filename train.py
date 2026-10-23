@@ -13,6 +13,7 @@ import argparse
 import hashlib
 import json
 import os
+import time
 from datetime import datetime, timezone
 from multiprocessing import Pool
 
@@ -23,6 +24,9 @@ import matplotlib.pyplot as plt
 import mlflow
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.dummy import DummyClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import LinearSVC
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import ConfusionMatrixDisplay, classification_report
 from sklearn.model_selection import train_test_split
@@ -41,6 +45,12 @@ MODELS = {
     "rf": lambda: RandomForestClassifier(
         n_estimators=100, class_weight="balanced", random_state=SEED, n_jobs=-1
     ),
+    "dummy": lambda: DummyClassifier(strategy="most_frequent"
+    ),
+    "logreg": lambda: LogisticRegression(
+        class_weight="balanced", random_state=SEED, max_iter=1000, n_jobs=-1
+    ),
+    "svc": lambda: LinearSVC(class_weight="balanced", random_state=SEED),
 }
 
 
@@ -179,7 +189,10 @@ def main():
 
         pipeline = build_pipeline(args.model, args.max_features)
         print(f"Training {args.model} on {len(X_train)} issues...")
+        start_time = time.perf_counter()
         pipeline.fit(X_train, y_train)
+        train_seconds = time.perf_counter() - start_time
+        mlflow.log_metric("training_time", train_seconds)
 
         metrics = {"validation": evaluate(pipeline, X_val, y_val, "val")}
 
