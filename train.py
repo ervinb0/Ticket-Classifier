@@ -4,6 +4,7 @@ Train the ticket classifier and track the run in MLflow.
     python train.py                      # experiment: evaluate on validation only
     python train.py --model rf           # pick a model (see MODELS)
     python train.py --final              # also evaluate on test and save the model
+    python train.py --note "keep '?'"    # describe what the run tries (MLflow tag)
 
 Experiments never touch the test set or artifacts/model.joblib. Only a --final
 run does, once you have picked the model on the validation set.
@@ -87,20 +88,26 @@ def remove_duplicates(df, text):
     return df[keep], stats
 
 
+def preprocessing_version():
+    """Short hash of the preprocessing code, so runs and caches can be told apart."""
+    with open(text_pre_processor.__file__, "rb") as f:
+        return hashlib.md5(f.read()).hexdigest()[:8]
+
+
 def preprocess_all(texts, cache_dir):
     """
     Preprocessing is the slow step, so cache it and use all CPU cores.
     The cache file name depends on the input texts and on the preprocessing code,
     so changing either one recomputes it instead of silently reusing old results.
+    Returns the processed texts and the preprocessing version.
     """
-    with open(text_pre_processor.__file__, "rb") as f:
-        code_hash = hashlib.md5(f.read()).hexdigest()[:8]
+    code_hash = preprocessing_version()
     data_hash = hashlib.md5(pd.util.hash_pandas_object(texts).values.tobytes()).hexdigest()[:8]
     cache_path = os.path.join(cache_dir, f"processed_{data_hash}_{code_hash}.pkl")
 
     if os.path.exists(cache_path):
         print(f"Using cached preprocessed text from {cache_path}")
-        return pd.read_pickle(cache_path)
+        return pd.read_pickle(cache_path), code_hash
 
     print(f"Preprocessing {len(texts)} issues (this takes a few minutes)...")
     with Pool() as pool:
@@ -108,7 +115,7 @@ def preprocess_all(texts, cache_dir):
     processed = pd.Series(processed, index=texts.index)
     os.makedirs(os.path.dirname(cache_path), exist_ok=True)
     processed.to_pickle(cache_path)
-    return processed
+    return processed, code_hash
 
 
 def build_pipeline(model_name, max_features):
@@ -148,11 +155,13 @@ def main():
     parser.add_argument("--data", default="datasets/sample1.csv")
     parser.add_argument("--out", default="artifacts/model.joblib")
     parser.add_argument("--cache-dir", default="datasets/cache")
+    parser.add_argument("--note", default="",
+                        help='What this run tries, e.g. --note "keep question words". Logged as a tag.')
     args = parser.parse_args()
 
     df = load_dataset(args.data)
     text = (df["issue_title"].fillna("") + " " + df["issue_body"].fillna("")).str.strip()
-    df["processed_text"] = preprocess_all(text, args.cache_dir)
+    df["processed_text"], preprocessing_version = preprocess_all(text, args.cache_dir)
 
     df, data_stats = remove_duplicates(df, text)
     print(f"Removed {data_stats['n_conflicting_removed']} issues with conflicting labels "
@@ -178,10 +187,13 @@ def main():
     run_name = f"{args.model}-final" if args.final else args.model
     with mlflow.start_run(run_name=run_name):
         mlflow.set_tag("final", args.final)
+        if args.note:
+            mlflow.set_tag("note", args.note)
         mlflow.log_params({
             "model": args.model,
             "max_features": args.max_features,
             "seed": SEED,
+            "preprocessing_version": preprocessing_version,
             "n_train": len(X_train),
             "n_val": len(X_val),
             **data_stats,

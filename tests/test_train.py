@@ -1,5 +1,6 @@
 import pandas as pd
-from train import remove_duplicates, MODELS, build_pipeline
+import models.text_pre_processor as text_pre_processor
+from train import remove_duplicates, MODELS, build_pipeline, preprocess_all
 import pytest
 
 def test_remove_duplicates():
@@ -73,3 +74,21 @@ def test_model_training(name):
         assert len(predictions) == len(labels)
         assert set(predictions).issubset(set(labels))
     
+
+
+def test_cache_changes_with_preprocessing_code(tmp_path, monkeypatch):
+    # Point the "preprocessing code" at a fake file we can edit
+    fake_code = tmp_path / "fake_pre_processor.py"
+    fake_code.write_text("version 1")
+    monkeypatch.setattr(text_pre_processor, "__file__", str(fake_code))
+    cache_dir = tmp_path / "cache"
+    texts = pd.Series(["The app crashes on startup", "Add a dark mode"])
+
+    _, version_1 = preprocess_all(texts, str(cache_dir))
+    _, version_again = preprocess_all(texts, str(cache_dir))  # same code: cache is reused
+    fake_code.write_text("version 2")
+    _, version_2 = preprocess_all(texts, str(cache_dir))
+
+    assert version_1 == version_again
+    assert version_1 != version_2
+    assert len(list(cache_dir.iterdir())) == 2  # one cache file per code version
