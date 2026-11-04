@@ -12,3 +12,14 @@
   There are 10,000 features, but the median issue uses only 22 of them. 99.7% of all values are zero.
   A linear model learns one weight per word and adds up the evidence from every word in the issue. Each of the 22 words pushes a little toward bug, enhancement or question, and the sum decides. Many weak signals spread over many sparse features is exactly where linear models shine.
   A Random Forest looks at one word per decision, and at each split it only considers a random 100 of the 10,000 words. For any given word, almost every issue has a zero, so most splits separate only a few issues. Each tree needs many splits to collect evidence a linear model gets in one sum. With balanced weights, it still mostly votes for the majority class. That's why linear models are the standard baseline for text classification with TF-IDF.
+
+Limitation:
+Language filter falsely rejects some English issues containing logs/URLs (langdetect on raw text, ~8% rejected). Possible fix: detect on cleaned text. Deferred: expected gain small.
+
+| Validation run            | logreg macro-F1 | logreg question F1 | svc macro-F1 | rf macro-F1 |
+| ------------------------- | --------------: | -----------------: | -----------: | ----------: |
+| Step 3 baseline           |           0.661 |              0.415 |        0.653 |       0.627 |
+| + question signals (\_up) |           0.691 |              0.476 |        0.679 |       0.664 |
+| + bigrams, 10k            |           0.699 |              0.489 |        0.696 |       0.684 |
+| + bigrams, 50k            |           0.710 |              0.506 |        0.689 |       0.653 |
+| + bigrams, 100k           |           0.716 |              0.517 |        0.698 |       0.637 |

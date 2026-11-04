@@ -118,9 +118,9 @@ def preprocess_all(texts, cache_dir):
     return processed, code_hash
 
 
-def build_pipeline(model_name, max_features):
+def build_pipeline(model_name, max_features, ngram_max):
     return Pipeline([
-        ("tfidf", TfidfVectorizer(max_features=max_features)),
+        ("tfidf", TfidfVectorizer(max_features=max_features, ngram_range=(1, ngram_max))),
         ("clf", MODELS[model_name]()),
     ])
 
@@ -135,7 +135,7 @@ def evaluate(pipeline, X, y, split):
         f"{split}_macro_f1": report["macro avg"]["f1-score"],
         f"{split}_accuracy": report["accuracy"],
         f"{split}_question_recall": report["question"]["recall"],
-        f"{split}_question_f1": report["question"]["f1-score"],
+        f"{split}_question_f1": report["question"]["f1-score"]
     })
 
     fig, ax = plt.subplots(figsize=(5, 4))
@@ -148,8 +148,9 @@ def evaluate(pipeline, X, y, split):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--model", default="rf", choices=sorted(MODELS))
-    parser.add_argument("--max-features", type=int, default=10000)
+    parser.add_argument("--model", default="logreg", choices=sorted(MODELS))
+    parser.add_argument("--max-features", type=int, default=100000)
+    parser.add_argument("--ngram-max", type=int, default=2)
     parser.add_argument("--final", action="store_true",
                         help="Evaluate on the test set and save the model. Use once, at the end.")
     parser.add_argument("--data", default="datasets/sample1.csv")
@@ -184,7 +185,9 @@ def main():
     print(f"Language/empty filter removed {data_stats['n_filtered']} issues")
 
     mlflow.set_experiment(EXPERIMENT_NAME)
-    run_name = f"{args.model}-final" if args.final else args.model
+    run_name = f"{args.model}-ng{args.ngram_max}-{args.max_features // 1000}k"
+    if args.final:
+        run_name += "-final"
     with mlflow.start_run(run_name=run_name):
         mlflow.set_tag("final", args.final)
         if args.note:
@@ -196,10 +199,11 @@ def main():
             "preprocessing_version": preprocessing_version,
             "n_train": len(X_train),
             "n_val": len(X_val),
+            "ngram_max": args.ngram_max,
             **data_stats,
         })
 
-        pipeline = build_pipeline(args.model, args.max_features)
+        pipeline = build_pipeline(args.model, args.max_features, args.ngram_max)
         print(f"Training {args.model} on {len(X_train)} issues...")
         start_time = time.perf_counter()
         pipeline.fit(X_train, y_train)
@@ -225,8 +229,10 @@ def main():
                 "model_version": version,
                 "model": args.model,
                 "data": args.data,
+                "ngram_max": args.ngram_max,
                 "n_train": len(X_train), "n_val": len(X_val), "n_test": len(X_test),
                 **metrics,
+                **vars(args),
             }, f, indent=2)
         mlflow.log_artifact(metrics_path)
         mlflow.set_tag("model_version", version)

@@ -66,7 +66,7 @@ def test_model_training(name):
             "question",
             "question",
         ]
-        pipeline = build_pipeline(name, max_features=100)
+        pipeline = build_pipeline(name, max_features=100, ngram_max=1)
         pipeline.fit(texts, labels)
         
         predictions = pipeline.predict(texts)
