@@ -12,6 +12,7 @@ def load_model():
     Returns:
         pipeline: sklearn Pipeline taking preprocessed text.
         version: the model version string saved at training time.
+        question_threshold: the threshold for predicting "question" saved at training time, or None if not used.
     """
     model_path = os.getenv("MODEL_PATH", DEFAULT_MODEL_PATH)
     if not os.path.exists(model_path):
@@ -24,7 +25,7 @@ def load_model():
         bundle = joblib.load(model_path)
     except Exception as e:
         raise RuntimeError(f"Error loading model from {model_path}: {e}")
-    return bundle["pipeline"], bundle["version"]
+    return bundle["pipeline"], bundle["version"], bundle.get("question_threshold")
 
 
 def predict_with_threshold(probabilities, classes, question_threshold=None):
