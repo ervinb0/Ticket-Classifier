@@ -20,6 +20,7 @@ from multiprocessing import Pool
 
 import joblib
 import matplotlib
+import numpy as np
 matplotlib.use("Agg")  # no GUI needed, we only save figures
 import matplotlib.pyplot as plt
 import mlflow
@@ -30,10 +31,11 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.svm import LinearSVC
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import ConfusionMatrixDisplay, classification_report
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, cross_val_predict
 from sklearn.pipeline import Pipeline
 
 import models.text_pre_processor as text_pre_processor
+from models.model_utils import predict_with_threshold
 from models.text_pre_processor import preprocess_text
 
 REQUIRED_COLUMNS = {"issue_label", "issue_title", "issue_body"}
@@ -72,6 +74,28 @@ def load_dataset(path):
         raise SystemExit(f"Dataset has unexpected labels: {sorted(unknown)}")
     return df
 
+
+def tune_question_threshold(probabilities, classes, y_true):
+    """
+    Try different thresholds for predicting "question" and pick the one with the best macro F1.
+    Returns the best threshold and the corresponding F1 score, and the full curve for plotting.
+    Use out-of-fold probabilities, never validation probabilities, 
+    to avoid overfitting the threshold to the validation set.
+    """
+    
+    thresholds = np.linspace(0.2, 0.8, 61) # 0.2, 0.21, ..., 0.8
+    curve = {"threshold": [], "macro_f1": [], "question_recall": [], "question_precision": []}
+    for t in thresholds:
+        y_pred = predict_with_threshold(probabilities, classes, t)
+        report = classification_report(y_true, y_pred, output_dict=True, zero_division=0)
+        curve["threshold"].append(t)
+        curve["macro_f1"].append(report["macro avg"]["f1-score"])
+        curve["question_recall"].append(report["question"]["recall"])
+        curve["question_precision"].append(report["question"]["precision"])
+        
+    best = int(np.argmax(curve["macro_f1"]))
+    return float(thresholds[best]), curve
+        
 
 def remove_duplicates(df, text):
     """
@@ -125,9 +149,12 @@ def build_pipeline(model_name, max_features, ngram_max):
     ])
 
 
-def evaluate(pipeline, X, y, split):
+def evaluate(pipeline, X, y, split, question_threshold=None):
     """Print the report, log the headline metrics and a confusion matrix to MLflow."""
-    y_pred = pipeline.predict(X)
+    if question_threshold is None:
+        y_pred = pipeline.predict(X)
+    else:
+        y_pred = predict_with_threshold(pipeline.predict_proba(X), pipeline.classes_, question_threshold)
     print(f"\n{split} set\n" + classification_report(y, y_pred, digits=3, zero_division=0))
     report = classification_report(y, y_pred, output_dict=True, zero_division=0)
 
@@ -146,6 +173,19 @@ def evaluate(pipeline, X, y, split):
     return report
 
 
+def plot_threshold_curve(curve, chosen):
+    """Log how macro-F1 and question precision/recall change with the threshold."""
+    fig, ax = plt.subplots(figsize=(6, 4))
+    ax.plot(curve["threshold"], curve["macro_f1"], label="macro-F1")
+    ax.plot(curve["threshold"], curve["question_precision"], label="question precision")
+    ax.plot(curve["threshold"], curve["question_recall"], label="question recall")
+    ax.axvline(chosen, color="gray", linestyle="--", label=f"chosen t = {chosen:.2f}")
+    ax.set_xlabel("question threshold")
+    ax.set_ylabel("score (train, out-of-fold)")
+    ax.legend()
+    mlflow.log_figure(fig, "question_threshold_curve.png")
+    plt.close(fig)
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--model", default="logreg", choices=sorted(MODELS))
@@ -155,6 +195,8 @@ def main():
                         help="Evaluate on the test set and save the model. Use once, at the end.")
     parser.add_argument("--data", default="datasets/sample1.csv")
     parser.add_argument("--out", default="artifacts/model.joblib")
+    parser.add_argument("--tune-threshold", action="store_true",
+                        help="Tune the 'question' threshold with 5-fold CV on train (needs predict_proba, e.g. logreg).")
     parser.add_argument("--cache-dir", default="datasets/cache")
     parser.add_argument("--note", default="",
                         help='What this run tries, e.g. --note "keep question words". Logged as a tag.')
@@ -209,19 +251,40 @@ def main():
         pipeline.fit(X_train, y_train)
         train_seconds = time.perf_counter() - start_time
         mlflow.log_metric("training_time", train_seconds)
+        
+        question_threshold = None # None means plain argmax, no special threshold for "question"
+        if args.tune_threshold:
+            print("Tuning the question threshold with 5-fold cross-validation on train...")
+            oof_probabilities = cross_val_predict(
+                build_pipeline(args.model, args.max_features, args.ngram_max),
+                X_train, y_train, cv=5, method="predict_proba"
+                )
+            question_threshold, curve = tune_question_threshold(oof_probabilities, pipeline.classes_, y_train)
+            plot_threshold_curve(curve, question_threshold)
+            
+            argmax_f1 = classification_report(
+                y_train, predict_with_threshold(oof_probabilities, pipeline.classes_, None),
+                output_dict=True, zero_division=0)["macro avg"]["f1-score"]
+            print(f"Out-of-fold macro-F1: argmax {argmax_f1:.3f} -> "
+                  f"threshold {question_threshold:.2f}: {max(curve['macro_f1']):.3f}")
+            mlflow.log_metrics({"train_oof_macro_f1_argmax": argmax_f1,
+                                "train_oof_macro_f1_tuned": max(curve["macro_f1"])})
+        mlflow.log_param("question_threshold", question_threshold)
 
-        metrics = {"validation": evaluate(pipeline, X_val, y_val, "val")}
+
+        metrics = {"validation": evaluate(pipeline, X_val, y_val, "val", question_threshold)}
 
         if not args.final:
             print("\nExperiment run: test set not evaluated, model not saved. "
                   "Compare runs with `mlflow ui --port 5001`.")
             return
 
-        metrics["test"] = evaluate(pipeline, X_test, y_test, "test")
+        metrics["test"] = evaluate(pipeline, X_test, y_test, "test", question_threshold)
 
         version = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
         os.makedirs(os.path.dirname(args.out), exist_ok=True)
-        joblib.dump({"pipeline": pipeline, "version": version}, args.out, compress=3)
+        joblib.dump({"pipeline": pipeline, "version": version,
+                    "question_threshold":question_threshold}, args.out, compress=3)
 
         metrics_path = os.path.join(os.path.dirname(args.out), "metrics.json")
         with open(metrics_path, "w") as f:
@@ -230,6 +293,7 @@ def main():
                 "model": args.model,
                 "data": args.data,
                 "ngram_max": args.ngram_max,
+                "question_threshold": question_threshold,
                 "n_train": len(X_train), "n_val": len(X_val), "n_test": len(X_test),
                 **metrics,
                 **vars(args),

@@ -23,3 +23,5 @@ Language filter falsely rejects some English issues containing logs/URLs (langde
 | + bigrams, 10k            |           0.699 |              0.489 |        0.696 |       0.684 |
 | + bigrams, 50k            |           0.710 |              0.506 |        0.689 |       0.653 |
 | + bigrams, 100k           |           0.716 |              0.517 |        0.698 |       0.637 |
+
+Threshold tuning (5-fold OOF on train) chose t = 0.52. Val macro-F1 0.716 → 0.723, question precision 0.45 → 0.52 at recall 0.61 → 0.53. Balanced class weights had already done most of the work; tuning mainly trades question recall for precision.
