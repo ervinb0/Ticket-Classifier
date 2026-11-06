@@ -79,10 +79,10 @@ def tune_question_threshold(probabilities, classes, y_true):
     """
     Try different thresholds for predicting "question" and pick the one with the best macro F1.
     Returns the best threshold and the corresponding F1 score, and the full curve for plotting.
-    Use out-of-fold probabilities, never validation probabilities, 
+    Use out-of-fold probabilities, never validation probabilities,
     to avoid overfitting the threshold to the validation set.
     """
-    
+
     thresholds = np.linspace(0.2, 0.8, 61) # 0.2, 0.21, ..., 0.8
     curve = {"threshold": [], "macro_f1": [], "question_recall": [], "question_precision": []}
     for t in thresholds:
@@ -92,10 +92,10 @@ def tune_question_threshold(probabilities, classes, y_true):
         curve["macro_f1"].append(report["macro avg"]["f1-score"])
         curve["question_recall"].append(report["question"]["recall"])
         curve["question_precision"].append(report["question"]["precision"])
-        
+
     best = int(np.argmax(curve["macro_f1"]))
     return float(thresholds[best]), curve
-        
+
 
 def remove_duplicates(df, text):
     """
@@ -186,6 +186,36 @@ def plot_threshold_curve(curve, chosen):
     mlflow.log_figure(fig, "question_threshold_curve.png")
     plt.close(fig)
 
+
+def load_splits(data_path, cache_dir):
+    """
+    Load, preprocess, deduplicate and split the data, exactly as training does.
+    Returns train, validation and test DataFrames (usable issues only), and data_stats.
+    """
+    df = load_dataset(data_path)
+    text = (df["issue_title"].fillna("") + " " + df["issue_body"].fillna("")).str.strip()
+    df["processed_text"], preprocessing_version = preprocess_all(text, cache_dir)
+
+    df, data_stats = remove_duplicates(df, text)
+    print(f"Removed {data_stats['n_conflicting_removed']} issues with conflicting labels "
+          f"and {data_stats['n_duplicates_removed']} duplicates, {len(df)} left")
+
+    # 70% train / 15% validation / 15% test, stratified so "question" is present in every split.
+    # Split before the language filter, so changing the filter never moves issues between splits.
+    train_df, rest_df = train_test_split(df, test_size=0.3, random_state=SEED, stratify=df["issue_label"])
+    val_df, test_df = train_test_split(rest_df, test_size=0.5, random_state=SEED, stratify=rest_df["issue_label"])
+
+    def usable(split_df):
+        """Drop issues the preprocessing rejected (non-English or empty)."""
+        return split_df[split_df["processed_text"].notna()]
+
+    train_df, val_df, test_df = usable(train_df), usable(val_df), usable(test_df)
+    data_stats["n_filtered"] = len(df) - len(train_df) - len(val_df) - len(test_df)
+    print(f"Language/empty filter removed {data_stats['n_filtered']} issues")
+
+    return train_df, val_df, test_df, data_stats, preprocessing_version
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--model", default="logreg", choices=sorted(MODELS))
@@ -202,29 +232,13 @@ def main():
                         help='What this run tries, e.g. --note "keep question words". Logged as a tag.')
     args = parser.parse_args()
 
-    df = load_dataset(args.data)
-    text = (df["issue_title"].fillna("") + " " + df["issue_body"].fillna("")).str.strip()
-    df["processed_text"], preprocessing_version = preprocess_all(text, args.cache_dir)
-
-    df, data_stats = remove_duplicates(df, text)
-    print(f"Removed {data_stats['n_conflicting_removed']} issues with conflicting labels "
-          f"and {data_stats['n_duplicates_removed']} duplicates, {len(df)} left")
-
-    # 70% train / 15% validation / 15% test, stratified so "question" is present in every split.
-    # Split before the language filter, so changing the filter never moves issues between splits.
-    train_df, rest_df = train_test_split(df, test_size=0.3, random_state=SEED, stratify=df["issue_label"])
-    val_df, test_df = train_test_split(rest_df, test_size=0.5, random_state=SEED, stratify=rest_df["issue_label"])
-
-    def usable(split_df):
-        """Drop issues the preprocessing rejected (non-English or empty)."""
-        split_df = split_df[split_df["processed_text"].notna()]
-        return split_df["processed_text"], split_df["issue_label"]
-
-    X_train, y_train = usable(train_df)
-    X_val, y_val = usable(val_df)
-    X_test, y_test = usable(test_df)
-    data_stats["n_filtered"] = len(df) - len(X_train) - len(X_val) - len(X_test)
-    print(f"Language/empty filter removed {data_stats['n_filtered']} issues")
+    train_df, val_df, test_df, data_stats, preprocessing_version = load_splits(args.data, args.cache_dir)
+    X_train = train_df["processed_text"]
+    y_train = train_df["issue_label"]
+    X_val = val_df["processed_text"]
+    y_val = val_df["issue_label"]
+    X_test = test_df["processed_text"]
+    y_test = test_df["issue_label"]
 
     mlflow.set_experiment(EXPERIMENT_NAME)
     run_name = f"{args.model}-ng{args.ngram_max}-{args.max_features // 1000}k"
@@ -251,7 +265,7 @@ def main():
         pipeline.fit(X_train, y_train)
         train_seconds = time.perf_counter() - start_time
         mlflow.log_metric("training_time", train_seconds)
-        
+
         question_threshold = None # None means plain argmax, no special threshold for "question"
         if args.tune_threshold:
             print("Tuning the question threshold with 5-fold cross-validation on train...")
@@ -261,7 +275,7 @@ def main():
                 )
             question_threshold, curve = tune_question_threshold(oof_probabilities, pipeline.classes_, y_train)
             plot_threshold_curve(curve, question_threshold)
-            
+
             argmax_f1 = classification_report(
                 y_train, predict_with_threshold(oof_probabilities, pipeline.classes_, None),
                 output_dict=True, zero_division=0)["macro avg"]["f1-score"]
