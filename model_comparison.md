@@ -27,3 +27,5 @@ Language filter falsely rejects some English issues containing logs/URLs (langde
 Threshold tuning (5-fold OOF on train) chose t = 0.52. Val macro-F1 0.716 → 0.723, question precision 0.45 → 0.52 at recall 0.61 → 0.53. Balanced class weights had already done most of the work; tuning mainly trades question recall for precision.
 
 Error analysis showed qmark firing on stack traces ([?:?], ?? ??:0). Counting only ? after a word: macro-F1 0.723 → 0.724 (noise), kept because it removes the artifact.
+
+Sentence embeddings (all-MiniLM-L6-v2) not evaluated. Error analysis showed most remaining errors are label noise or undecidable support requests, so the expected gain is small, and shipping embeddings would add PyTorch (~1 GB image, ~500 MB RAM) to the service. Future work: evaluate on a GPU and, if it helps, distil into a lighter model.
