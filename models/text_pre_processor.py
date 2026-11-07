@@ -64,6 +64,8 @@ EMOJI_PATTERN = re.compile(
 )
 LINK_PATTERN = re.compile(r"http\S+|www\S+")
 
+QUESTION_MARK_PATTERN = re.compile(r"(?<=[a-z])\?(?=\s|$)")     # "?" ending a word, not "[?:?]" in stack traces
+
 
 def remove_emojis_and_links(text):
     text = EMOJI_PATTERN.sub("", text)
@@ -72,8 +74,8 @@ def remove_emojis_and_links(text):
 
 
 def convert_question_marks_to_words(text):
-    """Convert question marks to the word 'qmark'."""
-    return text.replace("?", " qmark ")
+    """Turn a '?' that ends a word into the token 'qmark'."""
+    return QUESTION_MARK_PATTERN.sub(" qmark ", text)
 
 
 def remove_noise(text):

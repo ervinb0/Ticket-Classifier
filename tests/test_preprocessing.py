@@ -13,6 +13,11 @@ def test_transforms_question_marks_to_words():
     result = preprocess_text("Why does this happen?")
     assert "qmark" in result
     
+
+def test_only_question_marks_that_end_a_word_in_prose_count():
+    result = preprocess_text("Why does it crash? at Main.run(Main.java:5) ~[?:?] ?? ??:0")
+    assert result.split().count("qmark") == 1   # only the one after "crash"
+    
     
 def test_question_marks_in_links_are_removed():
     result = preprocess_text("See https://example.com/why-is-this-happening?")

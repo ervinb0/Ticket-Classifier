@@ -25,3 +25,5 @@ Language filter falsely rejects some English issues containing logs/URLs (langde
 | + bigrams, 100k           |           0.716 |              0.517 |        0.698 |       0.637 |
 
 Threshold tuning (5-fold OOF on train) chose t = 0.52. Val macro-F1 0.716 → 0.723, question precision 0.45 → 0.52 at recall 0.61 → 0.53. Balanced class weights had already done most of the work; tuning mainly trades question recall for precision.
+
+Error analysis showed qmark firing on stack traces ([?:?], ?? ??:0). Counting only ? after a word: macro-F1 0.723 → 0.724 (noise), kept because it removes the artifact.
