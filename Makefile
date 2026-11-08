@@ -1,4 +1,4 @@
-.PHONY: install train run test
+.PHONY: install train run test lint
 
 install:
 	python -m venv .venv
@@ -12,3 +12,7 @@ run:
 
 test:
 	.venv/bin/python -m pytest
+
+lint:
+	.venv/bin/ruff check .
+	.venv/bin/ruff format --check .
