@@ -5,7 +5,7 @@ install:
 	.venv/bin/pip install -r requirements-dev.txt
 
 train:
-	.venv/bin/python train.py
+	.venv/bin/python train.py --tune-threshold --final
 
 run:
 	.venv/bin/python app.py

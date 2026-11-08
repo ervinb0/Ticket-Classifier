@@ -6,6 +6,7 @@ from models.crud import store_prediction, update_prediction
 from models.database import SessionLocal, engine
 from models.models import Base
 from models.text_pre_processor import preprocess_text
+from models.model_utils import predict_with_threshold
 
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend")
 
@@ -17,10 +18,10 @@ _model_version = None
 
 def get_model():
     """Load once on first use so importing the app does not require a trained model."""
-    global _model, _model_version
+    global _model, _model_version, _question_threshold
     if _model is None:
-        _model, _model_version = model_utils.load_model()
-    return _model, _model_version
+        _model, _model_version, _question_threshold = model_utils.load_model()
+    return _model, _model_version, _question_threshold
 
 # Ensure DB tables exist
 Base.metadata.create_all(bind=engine)
@@ -68,10 +69,10 @@ def predict():
     if pre_text is None:
         return jsonify({"error": "Input is not in English or is invalid."}), 400
 
-    model, model_version = get_model()
-    probabilities = model.predict_proba([pre_text])[0]
-    class_probs = {label: float(p) for label, p in zip(model.classes_, probabilities)}
-    predicted_label = max(class_probs, key=class_probs.get)
+    model, model_version, question_threshold = get_model()
+    probabilities = model.predict_proba([pre_text])
+    class_probs = {label: float(p) for label, p in zip(model.classes_, probabilities[0])}
+    predicted_label = predict_with_threshold(probabilities, model.classes_, question_threshold)[0]
     issue_id = store_prediction(get_db(), issue_text, predicted_label)
 
     return jsonify({

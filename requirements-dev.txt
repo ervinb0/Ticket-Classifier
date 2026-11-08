@@ -1,3 +1,6 @@
 -r requirements.txt
 pytest==7.4.4
 pytest-cov==6.0.0
+mlflow==3.17.1
+matplotlib==3.11.2
+ipykernel==6.29.2

@@ -35,7 +35,23 @@ def ensure_nltk_resources():
 ensure_nltk_resources()
 
 lemmatizer = WordNetLemmatizer()
-STOP_WORDS = set(stopwords.words("english"))
+QUESTION_WORDS = {
+    'what', 'why', 'how', 'when', 'where',
+    'who', 'whom', 'which'
+}
+
+NEGATION_WORDS = {
+    'not', 'no', 'nor', 'never',
+    "isn", "aren", "wasn", "weren",
+    "hasn", "haven", "hadn",
+    "doesn", "don", "didn",
+    "couldn", "wouldn", "shouldn",
+    "won", "can", "cannot",
+    "mustn", "needn", "shan", "t"
+}
+
+WORDS_TO_PRESERVE = QUESTION_WORDS | NEGATION_WORDS
+STOP_WORDS = set(stopwords.words("english")) - WORDS_TO_PRESERVE
 
 EMOJI_PATTERN = re.compile(
     "["
@@ -48,11 +64,18 @@ EMOJI_PATTERN = re.compile(
 )
 LINK_PATTERN = re.compile(r"http\S+|www\S+")
 
+QUESTION_MARK_PATTERN = re.compile(r"(?<=[a-z])\?(?=\s|$)")     # "?" ending a word, not "[?:?]" in stack traces
+
 
 def remove_emojis_and_links(text):
     text = EMOJI_PATTERN.sub("", text)
     text = LINK_PATTERN.sub("", text)
     return text
+
+
+def convert_question_marks_to_words(text):
+    """Turn a '?' that ends a word into the token 'qmark'."""
+    return QUESTION_MARK_PATTERN.sub(" qmark ", text)
 
 
 def remove_noise(text):
@@ -87,6 +110,7 @@ def preprocess_text(text):
 
     # Links must go before noise removal, otherwise "https://..." turns into words
     text = remove_emojis_and_links(text)
+    text = convert_question_marks_to_words(text)
     text = remove_noise(text)
     text = remove_stopwords_lemmatizer(text)
 

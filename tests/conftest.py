@@ -28,7 +28,7 @@ def _stub_model():
         ("clf", RandomForestClassifier(n_estimators=5, random_state=42)),
     ])
     pipeline.fit(texts, labels)
-    return pipeline, "test-stub"
+    return pipeline, "test-stub", None
 
 
 @pytest.fixture(scope="session", autouse=True)
