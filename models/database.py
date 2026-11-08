@@ -1,7 +1,7 @@
 import os
 
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 # SQLite by default; set DATABASE_URL to use another database
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///predictions.db")

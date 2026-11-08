@@ -1,12 +1,13 @@
 import os
 
-from flask import Flask, request, jsonify, g, send_from_directory
-import models.model_utils as model_utils
+from flask import Flask, g, jsonify, request, send_from_directory
+
+from models import model_utils
 from models.crud import store_prediction, update_prediction
 from models.database import SessionLocal, engine
+from models.model_utils import predict_with_threshold
 from models.models import Base
 from models.text_pre_processor import preprocess_text
-from models.model_utils import predict_with_threshold
 
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend")
 
@@ -23,15 +24,18 @@ def get_model():
         _model, _model_version, _question_threshold = model_utils.load_model()
     return _model, _model_version, _question_threshold
 
+
 # Ensure DB tables exist
 Base.metadata.create_all(bind=engine)
 
 VALID_LABELS = ["bug", "enhancement", "question"]
 
+
 def get_db():
     if "db" not in g:
         g.db = SessionLocal()
     return g.db
+
 
 @app.teardown_appcontext
 def close_db(error=None):
@@ -39,26 +43,30 @@ def close_db(error=None):
     if db is not None:
         db.close()
 
+
 def get_string(data, key):
     value = data.get(key, "")
     return value.strip() if isinstance(value, str) else None
 
-@app.route('/')
+
+@app.route("/")
 def index():
     return send_from_directory(FRONTEND_DIR, "index.html")
 
-@app.route('/api/health')
+
+@app.route("/api/health")
 def health():
     return jsonify({"status": "ok"})
 
-@app.route('/api/predict', methods=['POST'])
+
+@app.route("/api/predict", methods=["POST"])
 def predict():
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
         return jsonify({"error": "Request body must be a JSON object."}), 400
 
-    title = get_string(data, 'title')
-    body = get_string(data, 'body')
+    title = get_string(data, "title")
+    body = get_string(data, "body")
     if title is None or body is None:
         return jsonify({"error": "Title and body must be strings."}), 400
     if not title and not body:
@@ -71,21 +79,26 @@ def predict():
 
     model, model_version, question_threshold = get_model()
     probabilities = model.predict_proba([pre_text])
-    class_probs = {label: float(p) for label, p in zip(model.classes_, probabilities[0])}
+    class_probs = {
+        label: float(p) for label, p in zip(model.classes_, probabilities[0], strict=True)
+    }
     predicted_label = predict_with_threshold(probabilities, model.classes_, question_threshold)[0]
     issue_id = store_prediction(get_db(), issue_text, predicted_label)
 
-    return jsonify({
-        "id": issue_id,
-        "title": title,
-        "body": body,
-        "predicted_label": predicted_label,
-        "confidence": class_probs[predicted_label],
-        "probabilities": class_probs,
-        "model_version": model_version,
-    })
+    return jsonify(
+        {
+            "id": issue_id,
+            "title": title,
+            "body": body,
+            "predicted_label": predicted_label,
+            "confidence": class_probs[predicted_label],
+            "probabilities": class_probs,
+            "model_version": model_version,
+        }
+    )
 
-@app.route('/api/correct', methods=['POST'])
+
+@app.route("/api/correct", methods=["POST"])
 def correct():
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
@@ -95,7 +108,7 @@ def correct():
     corrected_label = get_string(data, "corrected_label")
 
     if corrected_label not in VALID_LABELS:
-        return jsonify({'error': f'Invalid label. Valid labels are: {VALID_LABELS}'}), 400
+        return jsonify({"error": f"Invalid label. Valid labels are: {VALID_LABELS}"}), 400
 
     if not issue_id:
         return jsonify({"error": "Missing prediction id."}), 400
@@ -104,8 +117,15 @@ def correct():
     if not updated:
         return jsonify({"error": "Prediction id not found."}), 404
 
-    return jsonify({"message": "Label corrected successfully", "id": issue_id, "corrected_label": corrected_label})
+    return jsonify(
+        {
+            "message": "Label corrected successfully",
+            "id": issue_id,
+            "corrected_label": corrected_label,
+        }
+    )
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     # Not 5000: macOS AirPlay Receiver listens there
     app.run(port=int(os.getenv("PORT", "8000")), debug=os.getenv("FLASK_DEBUG") == "1")

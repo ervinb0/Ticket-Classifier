@@ -10,31 +10,33 @@ Experiments never touch the test set or artifacts/model.joblib. Only a --final
 run does, once you have picked the model on the validation set.
 The vectorizer and model are saved together, so they can never get out of sync.
 """
+
 import argparse
 import hashlib
 import json
 import os
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from multiprocessing import Pool
 
 import joblib
 import matplotlib
 import numpy as np
+
 matplotlib.use("Agg")  # no GUI needed, we only save figures
 import matplotlib.pyplot as plt
 import mlflow
 import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.dummy import DummyClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.svm import LinearSVC
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import ConfusionMatrixDisplay, classification_report
-from sklearn.model_selection import train_test_split, cross_val_predict
+from sklearn.model_selection import cross_val_predict, train_test_split
 from sklearn.pipeline import Pipeline
+from sklearn.svm import LinearSVC
 
-import models.text_pre_processor as text_pre_processor
+from models import text_pre_processor
 from models.model_utils import predict_with_threshold
 from models.text_pre_processor import preprocess_text
 
@@ -48,8 +50,7 @@ MODELS = {
     "rf": lambda: RandomForestClassifier(
         n_estimators=100, class_weight="balanced", random_state=SEED, n_jobs=-1
     ),
-    "dummy": lambda: DummyClassifier(strategy="most_frequent"
-    ),
+    "dummy": lambda: DummyClassifier(strategy="most_frequent"),
     "logreg": lambda: LogisticRegression(
         class_weight="balanced", random_state=SEED, max_iter=1000, n_jobs=-1
     ),
@@ -83,7 +84,7 @@ def tune_question_threshold(probabilities, classes, y_true):
     to avoid overfitting the threshold to the validation set.
     """
 
-    thresholds = np.linspace(0.2, 0.8, 61) # 0.2, 0.21, ..., 0.8
+    thresholds = np.linspace(0.2, 0.8, 61)  # 0.2, 0.21, ..., 0.8
     curve = {"threshold": [], "macro_f1": [], "question_recall": [], "question_precision": []}
     for t in thresholds:
         y_pred = predict_with_threshold(probabilities, classes, t)
@@ -108,7 +109,10 @@ def remove_duplicates(df, text):
     duplicate = key.duplicated() & ~conflicting
 
     keep = ~conflicting & ~duplicate
-    stats = {"n_conflicting_removed": int(conflicting.sum()), "n_duplicates_removed": int(duplicate.sum())}
+    stats = {
+        "n_conflicting_removed": int(conflicting.sum()),
+        "n_duplicates_removed": int(duplicate.sum()),
+    }
     return df[keep], stats
 
 
@@ -143,10 +147,12 @@ def preprocess_all(texts, cache_dir):
 
 
 def build_pipeline(model_name, max_features, ngram_max):
-    return Pipeline([
-        ("tfidf", TfidfVectorizer(max_features=max_features, ngram_range=(1, ngram_max))),
-        ("clf", MODELS[model_name]()),
-    ])
+    return Pipeline(
+        [
+            ("tfidf", TfidfVectorizer(max_features=max_features, ngram_range=(1, ngram_max))),
+            ("clf", MODELS[model_name]()),
+        ]
+    )
 
 
 def evaluate(pipeline, X, y, split, question_threshold=None):
@@ -154,16 +160,20 @@ def evaluate(pipeline, X, y, split, question_threshold=None):
     if question_threshold is None:
         y_pred = pipeline.predict(X)
     else:
-        y_pred = predict_with_threshold(pipeline.predict_proba(X), pipeline.classes_, question_threshold)
+        y_pred = predict_with_threshold(
+            pipeline.predict_proba(X), pipeline.classes_, question_threshold
+        )
     print(f"\n{split} set\n" + classification_report(y, y_pred, digits=3, zero_division=0))
     report = classification_report(y, y_pred, output_dict=True, zero_division=0)
 
-    mlflow.log_metrics({
-        f"{split}_macro_f1": report["macro avg"]["f1-score"],
-        f"{split}_accuracy": report["accuracy"],
-        f"{split}_question_recall": report["question"]["recall"],
-        f"{split}_question_f1": report["question"]["f1-score"]
-    })
+    mlflow.log_metrics(
+        {
+            f"{split}_macro_f1": report["macro avg"]["f1-score"],
+            f"{split}_accuracy": report["accuracy"],
+            f"{split}_question_recall": report["question"]["recall"],
+            f"{split}_question_f1": report["question"]["f1-score"],
+        }
+    )
 
     fig, ax = plt.subplots(figsize=(5, 4))
     ConfusionMatrixDisplay.from_predictions(y, y_pred, labels=LABELS, ax=ax, colorbar=False)
@@ -197,13 +207,19 @@ def load_splits(data_path, cache_dir):
     df["processed_text"], preprocessing_version = preprocess_all(text, cache_dir)
 
     df, data_stats = remove_duplicates(df, text)
-    print(f"Removed {data_stats['n_conflicting_removed']} issues with conflicting labels "
-          f"and {data_stats['n_duplicates_removed']} duplicates, {len(df)} left")
+    print(
+        f"Removed {data_stats['n_conflicting_removed']} issues with conflicting labels "
+        f"and {data_stats['n_duplicates_removed']} duplicates, {len(df)} left"
+    )
 
     # 70% train / 15% validation / 15% test, stratified so "question" is present in every split.
     # Split before the language filter, so changing the filter never moves issues between splits.
-    train_df, rest_df = train_test_split(df, test_size=0.3, random_state=SEED, stratify=df["issue_label"])
-    val_df, test_df = train_test_split(rest_df, test_size=0.5, random_state=SEED, stratify=rest_df["issue_label"])
+    train_df, rest_df = train_test_split(
+        df, test_size=0.3, random_state=SEED, stratify=df["issue_label"]
+    )
+    val_df, test_df = train_test_split(
+        rest_df, test_size=0.5, random_state=SEED, stratify=rest_df["issue_label"]
+    )
 
     def usable(split_df):
         """Drop issues the preprocessing rejected (non-English or empty)."""
@@ -217,22 +233,35 @@ def load_splits(data_path, cache_dir):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("--model", default="logreg", choices=sorted(MODELS))
     parser.add_argument("--max-features", type=int, default=100000)
     parser.add_argument("--ngram-max", type=int, default=2)
-    parser.add_argument("--final", action="store_true",
-                        help="Evaluate on the test set and save the model. Use once, at the end.")
+    parser.add_argument(
+        "--final",
+        action="store_true",
+        help="Evaluate on the test set and save the model. Use once, at the end.",
+    )
     parser.add_argument("--data", default="datasets/sample1.csv")
     parser.add_argument("--out", default="artifacts/model.joblib")
-    parser.add_argument("--tune-threshold", action="store_true",
-                        help="Tune the 'question' threshold with 5-fold CV on train (needs predict_proba, e.g. logreg).")
+    parser.add_argument(
+        "--tune-threshold",
+        action="store_true",
+        help="Tune the 'question' threshold with 5-fold CV on train (needs predict_proba, e.g. logreg).",
+    )
     parser.add_argument("--cache-dir", default="datasets/cache")
-    parser.add_argument("--note", default="",
-                        help='What this run tries, e.g. --note "keep question words". Logged as a tag.')
+    parser.add_argument(
+        "--note",
+        default="",
+        help='What this run tries, e.g. --note "keep question words". Logged as a tag.',
+    )
     args = parser.parse_args()
 
-    train_df, val_df, test_df, data_stats, preprocessing_version = load_splits(args.data, args.cache_dir)
+    train_df, val_df, test_df, data_stats, preprocessing_version = load_splits(
+        args.data, args.cache_dir
+    )
     X_train = train_df["processed_text"]
     y_train = train_df["issue_label"]
     X_val = val_df["processed_text"]
@@ -248,16 +277,18 @@ def main():
         mlflow.set_tag("final", args.final)
         if args.note:
             mlflow.set_tag("note", args.note)
-        mlflow.log_params({
-            "model": args.model,
-            "max_features": args.max_features,
-            "seed": SEED,
-            "preprocessing_version": preprocessing_version,
-            "n_train": len(X_train),
-            "n_val": len(X_val),
-            "ngram_max": args.ngram_max,
-            **data_stats,
-        })
+        mlflow.log_params(
+            {
+                "model": args.model,
+                "max_features": args.max_features,
+                "seed": SEED,
+                "preprocessing_version": preprocessing_version,
+                "n_train": len(X_train),
+                "n_val": len(X_val),
+                "ngram_max": args.ngram_max,
+                **data_stats,
+            }
+        )
 
         pipeline = build_pipeline(args.model, args.max_features, args.ngram_max)
         print(f"Training {args.model} on {len(X_train)} issues...")
@@ -266,52 +297,76 @@ def main():
         train_seconds = time.perf_counter() - start_time
         mlflow.log_metric("training_time", train_seconds)
 
-        question_threshold = None # None means plain argmax, no special threshold for "question"
+        question_threshold = None  # None means plain argmax, no special threshold for "question"
         if args.tune_threshold:
             print("Tuning the question threshold with 5-fold cross-validation on train...")
             oof_probabilities = cross_val_predict(
                 build_pipeline(args.model, args.max_features, args.ngram_max),
-                X_train, y_train, cv=5, method="predict_proba"
-                )
-            question_threshold, curve = tune_question_threshold(oof_probabilities, pipeline.classes_, y_train)
+                X_train,
+                y_train,
+                cv=5,
+                method="predict_proba",
+            )
+            question_threshold, curve = tune_question_threshold(
+                oof_probabilities, pipeline.classes_, y_train
+            )
             plot_threshold_curve(curve, question_threshold)
 
             argmax_f1 = classification_report(
-                y_train, predict_with_threshold(oof_probabilities, pipeline.classes_, None),
-                output_dict=True, zero_division=0)["macro avg"]["f1-score"]
-            print(f"Out-of-fold macro-F1: argmax {argmax_f1:.3f} -> "
-                  f"threshold {question_threshold:.2f}: {max(curve['macro_f1']):.3f}")
-            mlflow.log_metrics({"train_oof_macro_f1_argmax": argmax_f1,
-                                "train_oof_macro_f1_tuned": max(curve["macro_f1"])})
+                y_train,
+                predict_with_threshold(oof_probabilities, pipeline.classes_, None),
+                output_dict=True,
+                zero_division=0,
+            )["macro avg"]["f1-score"]
+            print(
+                f"Out-of-fold macro-F1: argmax {argmax_f1:.3f} -> "
+                f"threshold {question_threshold:.2f}: {max(curve['macro_f1']):.3f}"
+            )
+            mlflow.log_metrics(
+                {
+                    "train_oof_macro_f1_argmax": argmax_f1,
+                    "train_oof_macro_f1_tuned": max(curve["macro_f1"]),
+                }
+            )
         mlflow.log_param("question_threshold", question_threshold)
-
 
         metrics = {"validation": evaluate(pipeline, X_val, y_val, "val", question_threshold)}
 
         if not args.final:
-            print("\nExperiment run: test set not evaluated, model not saved. "
-                  "Compare runs with `mlflow ui --port 5001`.")
+            print(
+                "\nExperiment run: test set not evaluated, model not saved. "
+                "Compare runs with `mlflow ui --port 5001`."
+            )
             return
 
         metrics["test"] = evaluate(pipeline, X_test, y_test, "test", question_threshold)
 
-        version = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+        version = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
         os.makedirs(os.path.dirname(args.out), exist_ok=True)
-        joblib.dump({"pipeline": pipeline, "version": version,
-                    "question_threshold":question_threshold}, args.out, compress=3)
+        joblib.dump(
+            {"pipeline": pipeline, "version": version, "question_threshold": question_threshold},
+            args.out,
+            compress=3,
+        )
 
         metrics_path = os.path.join(os.path.dirname(args.out), "metrics.json")
         with open(metrics_path, "w") as f:
-            json.dump({
-                "model_version": version,
-                "model": args.model,
-                "data": args.data,
-                "ngram_max": args.ngram_max,
-                "question_threshold": question_threshold,
-                "n_train": len(X_train), "n_val": len(X_val), "n_test": len(X_test),
-                **metrics,
-                **vars(args),
-            }, f, indent=2)
+            json.dump(
+                {
+                    "model_version": version,
+                    "model": args.model,
+                    "data": args.data,
+                    "ngram_max": args.ngram_max,
+                    "question_threshold": question_threshold,
+                    "n_train": len(X_train),
+                    "n_val": len(X_val),
+                    "n_test": len(X_test),
+                    **metrics,
+                    **vars(args),
+                },
+                f,
+                indent=2,
+            )
         mlflow.log_artifact(metrics_path)
         mlflow.set_tag("model_version", version)
 

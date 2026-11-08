@@ -1,35 +1,37 @@
 import pandas as pd
-import models.text_pre_processor as text_pre_processor
-from train import remove_duplicates, MODELS, build_pipeline, preprocess_all
 import pytest
+
+from models import text_pre_processor
+from train import MODELS, build_pipeline, preprocess_all, remove_duplicates
+
 
 def test_remove_duplicates():
     # Arrange: create a small DataFrame
-    df = pd.DataFrame({
-        "issue_text": [
-            "App crashes",       # Row 0: keep
-            "app crashes!",      # Row 1: duplicate of row 0
-            "Payment failed",    # Row 2: keep
-            "Payment failed.",   # Row 3: duplicate of row 2
-            "Error 404",         # Row 4: conflicting label since processing removes numbers/punctuation
-            "error 500",         # Row 5: conflicting label since processing removes numbers/punctuation
-            "Login timeout",     # Row 6: unique, keep
-        ],
-        "issue_label": [
-            "Bug",
-            "Bug",
-            "Question",
-            "Question",
-            "Bug",
-            "Question",
-            "Bug",
-        ],
-    })
+    df = pd.DataFrame(
+        {
+            "issue_text": [
+                "App crashes",  # Row 0: keep
+                "app crashes!",  # Row 1: duplicate of row 0
+                "Payment failed",  # Row 2: keep
+                "Payment failed.",  # Row 3: duplicate of row 2
+                "Error 404",  # Row 4: conflicting label since processing removes numbers/punctuation
+                "error 500",  # Row 5: conflicting label since processing removes numbers/punctuation
+                "Login timeout",  # Row 6: unique, keep
+            ],
+            "issue_label": [
+                "Bug",
+                "Bug",
+                "Question",
+                "Question",
+                "Bug",
+                "Question",
+                "Bug",
+            ],
+        }
+    )
 
     # Act: pass the ENTIRE text column as a pandas Series
-    cleaned_df, stats = remove_duplicates(
-        df, df["issue_text"]
-    )
+    cleaned_df, stats = remove_duplicates(df, df["issue_text"])
 
     # Assert: only the expected rows remain
     assert cleaned_df.index.tolist() == [0, 2, 6]
@@ -46,34 +48,34 @@ def test_remove_duplicates():
         "Question",
         "Bug",
     ]
-    
+
+
 @pytest.mark.parametrize("name", sorted(MODELS))
 def test_model_training(name):
-        texts = [
-            "Application crashes on startup",
-            "Unexpected error when opening ticket",
-            "Add dark mode to dashboard",
-            "Implement search functionality",
-            "How do I configure the application",
-            "Why does this feature work this way",
-        ]
+    texts = [
+        "Application crashes on startup",
+        "Unexpected error when opening ticket",
+        "Add dark mode to dashboard",
+        "Implement search functionality",
+        "How do I configure the application",
+        "Why does this feature work this way",
+    ]
 
-        labels = [
-            "bug",
-            "bug",
-            "enhancement",
-            "enhancement",
-            "question",
-            "question",
-        ]
-        pipeline = build_pipeline(name, max_features=100, ngram_max=1)
-        pipeline.fit(texts, labels)
-        
-        predictions = pipeline.predict(texts)
-        
-        assert len(predictions) == len(labels)
-        assert set(predictions).issubset(set(labels))
-    
+    labels = [
+        "bug",
+        "bug",
+        "enhancement",
+        "enhancement",
+        "question",
+        "question",
+    ]
+    pipeline = build_pipeline(name, max_features=100, ngram_max=1)
+    pipeline.fit(texts, labels)
+
+    predictions = pipeline.predict(texts)
+
+    assert len(predictions) == len(labels)
+    assert set(predictions).issubset(set(labels))
 
 
 def test_cache_changes_with_preprocessing_code(tmp_path, monkeypatch):
