@@ -98,13 +98,18 @@ def tune_question_threshold(probabilities, classes, y_true):
     return float(thresholds[best]), curve
 
 
+def dedup_key(text):
+    """Normalize texts so near-duplicates (case, digits, punctuation) compare equal."""
+    return text.str.lower().str.replace(r"[\W\d_]+", " ", regex=True).str.strip()
+
+
 def remove_duplicates(df, text):
     """
     Drop texts that appear with more than one label (label noise), then keep one
     copy of every remaining duplicate, so no issue can be in train and validation.
     Texts count as equal when they only differ in case, digits or punctuation.
     """
-    key = text.str.lower().str.replace(r"[\W\d_]+", " ", regex=True).str.strip()
+    key = dedup_key(text)
     conflicting = df.groupby(key)["issue_label"].transform("nunique") > 1
     duplicate = key.duplicated() & ~conflicting
 
