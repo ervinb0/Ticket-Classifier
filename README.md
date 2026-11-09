@@ -117,13 +117,12 @@ make test             # run the tests (no dataset or model needed)
 ### With Docker
 
 ```bash
-docker build -t ticket-classifier .
-docker run --rm -p 8000:8000 ticket-classifier
+docker compose up --build    # app + Postgres; predictions persist in a volume
 ```
 
-The image downloads the trained model from the
+Open http://localhost:8000. The image downloads the trained model from the
 [GitHub release](https://github.com/ervinb0/Ticket-Classifier/releases), so no dataset or training is needed.
-Open http://localhost:8000.
+`docker compose down` stops everything and keeps the data; `docker compose down -v` also deletes it.
 
 ### API
 

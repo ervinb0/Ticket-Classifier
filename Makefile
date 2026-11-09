@@ -1,4 +1,4 @@
-.PHONY: install train run test lint
+.PHONY: install train run test lint up down
 
 install:
 	python -m venv .venv
@@ -16,3 +16,9 @@ test:
 lint:
 	.venv/bin/ruff check .
 	.venv/bin/ruff format --check .
+
+up:
+	docker compose up --build
+
+down:
+	docker compose down
