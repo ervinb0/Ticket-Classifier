@@ -14,3 +14,10 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Base class for our models
 Base = declarative_base()
+
+
+def init_db():
+    """Create missing tables. Run once before the server starts, not on every import."""
+    from models import models  # noqa: F401  (registers the tables on Base)
+
+    Base.metadata.create_all(bind=engine)

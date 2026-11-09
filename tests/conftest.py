@@ -14,6 +14,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.pipeline import Pipeline
 
 from models import model_utils
+from models.database import init_db
 
 
 def _stub_model():
@@ -36,6 +37,7 @@ def _stub_model():
 
 @pytest.fixture(scope="session", autouse=True)
 def stub_model():
+    init_db()  # create tables if they don't exist
     original = model_utils.load_model
     model_utils.load_model = _stub_model
     yield

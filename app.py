@@ -4,9 +4,8 @@ from flask import Flask, g, jsonify, request, send_from_directory
 
 from models import model_utils
 from models.crud import store_prediction, update_prediction
-from models.database import SessionLocal, engine
+from models.database import SessionLocal, init_db
 from models.model_utils import predict_with_threshold
-from models.models import Base
 from models.text_pre_processor import preprocess_text
 
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend")
@@ -24,9 +23,6 @@ def get_model():
         _model, _model_version, _question_threshold = model_utils.load_model()
     return _model, _model_version, _question_threshold
 
-
-# Ensure DB tables exist
-Base.metadata.create_all(bind=engine)
 
 VALID_LABELS = ["bug", "enhancement", "question"]
 
@@ -128,4 +124,5 @@ def correct():
 
 if __name__ == "__main__":
     # Not 5000: macOS AirPlay Receiver listens there
+    init_db()  # create tables if they don't exist
     app.run(port=int(os.getenv("PORT", "8000")), debug=os.getenv("FLASK_DEBUG") == "1")
