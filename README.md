@@ -114,6 +114,17 @@ make run              # start the app on http://127.0.0.1:8000
 make test             # run the tests (no dataset or model needed)
 ```
 
+### With Docker
+
+```bash
+docker build -t ticket-classifier .
+docker run --rm -p 8000:8000 ticket-classifier
+```
+
+The image downloads the trained model from the
+[GitHub release](https://github.com/ervinb0/Ticket-Classifier/releases), so no dataset or training is needed.
+Open http://localhost:8000.
+
 ### API
 
 ```bash

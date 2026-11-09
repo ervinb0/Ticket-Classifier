@@ -13,7 +13,6 @@ DetectorFactory.seed = 0
 MIN_WORDS_FOR_LANG_CHECK = 5
 
 NLTK_RESOURCES = {
-    "punkt": "tokenizers/punkt",
     "punkt_tab": "tokenizers/punkt_tab",
     "stopwords": "corpora/stopwords",
     "wordnet": "corpora/wordnet",

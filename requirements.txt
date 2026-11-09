@@ -3,6 +3,6 @@ joblib==1.4.2
 langdetect==1.0.9
 nltk==3.9.1
 numpy==1.26.4
-pandas==2.2.3
 scikit-learn==1.5.1
 sqlalchemy==2.0.34
+gunicorn==23.0.0
