@@ -44,6 +44,7 @@ REQUIRED_COLUMNS = {"issue_label", "issue_title", "issue_body"}
 LABELS = ["bug", "enhancement", "question"]
 SEED = 42
 EXPERIMENT_NAME = "issue-classifier"
+QUALITY_GATE = {"macro_f1": 0.70, "question_f1": 0.45}
 
 # Model name -> function returning a fresh classifier. Add baselines here.
 MODELS = {
@@ -96,6 +97,23 @@ def tune_question_threshold(probabilities, classes, y_true):
 
     best = int(np.argmax(curve["macro_f1"]))
     return float(thresholds[best]), curve
+
+
+def check_quality_gate(report, gate=QUALITY_GATE):
+    """
+    Compare a classification_report dict against minimum scores.
+    Returns a list of failure messages; an empty list means the model can be saved.
+    """
+    scores = {
+        "macro_f1": report["macro avg"]["f1-score"],
+        "question_f1": report["question"]["f1-score"],
+    }
+    failures = []
+    for name, minimum in gate.items():
+        score = scores[name]
+        if score < minimum:
+            failures.append(f"{name} {score:.3f} < {minimum:.2f}")
+    return failures
 
 
 def dedup_key(text):
@@ -345,6 +363,14 @@ def main():
             return
 
         metrics["test"] = evaluate(pipeline, X_test, y_test, "test", question_threshold)
+
+        # Check before saving, so a model below the minimum never overwrites the current one
+        check_failures = check_quality_gate(metrics["test"])
+        mlflow.set_tag("quality_gate", "failed" if check_failures else "passed")
+        if check_failures:
+            raise SystemExit(
+                "Quality gate failed, model not saved:\n  " + "\n  ".join(check_failures)
+            )
 
         version = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
         os.makedirs(os.path.dirname(args.out), exist_ok=True)

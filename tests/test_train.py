@@ -4,7 +4,17 @@ import pandas as pd
 import pytest
 
 from models import text_pre_processor
-from train import MODELS, build_pipeline, dedup_key, load_splits, preprocess_all, remove_duplicates
+from train import (
+    MODELS,
+    build_pipeline,
+    check_quality_gate,
+    dedup_key,
+    load_splits,
+    preprocess_all,
+    remove_duplicates,
+)
+
+GATE = {"macro_f1": 0.70, "question_f1": 0.45}
 
 
 def make_dataset(path):
@@ -143,6 +153,58 @@ def test_splits_are_reproducible(tmp_path):
 
     for split_first, split_second in zip(first[:3], second[:3], strict=True):
         assert split_first.index.tolist() == split_second.index.tolist()
+
+
+def test_good_report_quality_gate():
+    report = {
+        "macro avg": {
+            "f1-score": 0.77,
+        },
+        "question": {
+            "f1-score": 0.53,
+        },
+    }
+    failures = check_quality_gate(report, GATE)
+    assert failures == []
+
+
+def test_macro_low_quality_gate():
+    report = {
+        "macro avg": {
+            "f1-score": 0.610,
+        },
+        "question": {
+            "f1-score": 0.53,
+        },
+    }
+    failures = check_quality_gate(report, GATE)
+    assert failures == ["macro_f1 0.610 < 0.70"]
+
+
+def test_question_low_quality_gate():
+    report = {
+        "macro avg": {
+            "f1-score": 0.73,
+        },
+        "question": {
+            "f1-score": 0.330,
+        },
+    }
+    failures = check_quality_gate(report, GATE)
+    assert failures == ["question_f1 0.330 < 0.45"]
+
+
+def test_boundaries_quality_gate():
+    report = {
+        "macro avg": {
+            "f1-score": 0.70,
+        },
+        "question": {
+            "f1-score": 0.45,
+        },
+    }
+    failures = check_quality_gate(report, GATE)
+    assert failures == []
 
 
 def test_remove_duplicates():

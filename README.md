@@ -70,8 +70,13 @@ the analysis in [`notebooks/01_eda.ipynb`](notebooks/01_eda.ipynb) and
 
 - **Deduplicate before splitting.** 1,124 extra copies (mostly issue templates) and 112 texts with
   conflicting labels were found; without dedup, the same issue could be in train and test.
+  A test checks that no normalized text ends up in two splits.
 - **Decide on validation, test once.** Experiments never touch the test set or the saved model;
   only `train.py --final` does.
+- **Quality gate before saving.** `train.py --final` only saves the model if test macro-F1 ≥ 0.70
+  and `question` F1 ≥ 0.45; otherwise it exits with an error and the current model stays in place.
+  The minimums sit below current scores (0.72 / 0.52), so the gate catches real regressions
+  (a preprocessing bug, bad retraining data) rather than run-to-run noise.
 - **Linear model over Random Forest.** TF-IDF is 99.7% zeros; a linear model adds up many weak word
   signals, a tree looks at one word per split. LogReg was better and 3× faster.
 - **Keep question signals.** Standard stopword lists delete "how", "why", "not" and `?`, which are
