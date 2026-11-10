@@ -109,3 +109,12 @@ def test_index_serves_frontend(client):
     response = client.get("/")
     assert response.status_code == 200
     assert b"Issue Classifier" in response.data
+
+
+def test_predict_rejects_large_requests(client):
+    data = {"title": "Huge issue", "body": "word " * 30_000}  # ~150 KB
+
+    response = client.post("/api/predict", json=data)
+
+    assert response.status_code == 413
+    assert "error" in response.get_json()

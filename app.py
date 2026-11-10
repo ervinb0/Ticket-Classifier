@@ -11,6 +11,8 @@ from models.text_pre_processor import preprocess_text
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend")
 
 app = Flask(__name__, static_folder=os.path.join(FRONTEND_DIR, "static"))
+# Real issues are a few KB; larger bodies would block the single worker for minutes
+app.config["MAX_CONTENT_LENGTH"] = 100 * 1024  # 100 KB
 
 _model = None
 _model_version = None
@@ -120,6 +122,11 @@ def correct():
             "corrected_label": corrected_label,
         }
     )
+
+
+@app.errorhandler(413)
+def request_too_large(error):
+    return jsonify({"error": "Request is too large (limit: 100 KB)."}), 413
 
 
 if __name__ == "__main__":
