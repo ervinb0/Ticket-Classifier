@@ -29,4 +29,6 @@ USER appuser
 
 # 8. Start the server
 EXPOSE 8000
-CMD ["sh", "-c", "python -c 'from models.database import init_db; init_db()' && exec gunicorn --bind 0.0.0.0:${PORT:-8000} app:app"]
+# --timeout 300: with 0.1 CPU the first prediction took ~105 s (measured with --cpus 0.1);
+# the default of 30 s would kill the worker mid-request
+CMD ["sh", "-c", "python -c 'from models.database import init_db; init_db()' && exec gunicorn --bind 0.0.0.0:${PORT:-8000} --timeout 300 app:app"]

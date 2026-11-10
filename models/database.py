@@ -20,7 +20,9 @@ def normalize_database_url(url):
 DATABASE_URL = normalize_database_url(os.getenv("DATABASE_URL", "sqlite:///predictions.db"))
 
 # Create an SQLAlchemy engine
-engine = create_engine(DATABASE_URL, echo=os.getenv("SQL_ECHO") == "1")
+engine = create_engine(
+    DATABASE_URL, echo=os.getenv("SQL_ECHO") == "1", pool_pre_ping=True
+)  # Neon closes idle connections; test each one before use
 
 # Create a session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
