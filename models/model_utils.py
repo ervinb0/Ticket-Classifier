@@ -24,7 +24,7 @@ def load_model():
     try:
         bundle = joblib.load(model_path)
     except Exception as e:
-        raise RuntimeError(f"Error loading model from {model_path}: {e}")
+        raise RuntimeError(f"Error loading model from {model_path}: {e}") from e
     return bundle["pipeline"], bundle["version"], bundle.get("question_threshold")
 
 

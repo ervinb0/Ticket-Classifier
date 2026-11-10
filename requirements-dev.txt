@@ -4,3 +4,5 @@ pytest-cov==6.0.0
 mlflow==3.17.1
 matplotlib==3.11.2
 ipykernel==6.29.2
+pandas==2.2.3
+ruff==0.17.4

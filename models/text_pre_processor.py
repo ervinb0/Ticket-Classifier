@@ -13,7 +13,6 @@ DetectorFactory.seed = 0
 MIN_WORDS_FOR_LANG_CHECK = 5
 
 NLTK_RESOURCES = {
-    "punkt": "tokenizers/punkt",
     "punkt_tab": "tokenizers/punkt_tab",
     "stopwords": "corpora/stopwords",
     "wordnet": "corpora/wordnet",
@@ -35,19 +34,33 @@ def ensure_nltk_resources():
 ensure_nltk_resources()
 
 lemmatizer = WordNetLemmatizer()
-QUESTION_WORDS = {
-    'what', 'why', 'how', 'when', 'where',
-    'who', 'whom', 'which'
-}
+QUESTION_WORDS = {"what", "why", "how", "when", "where", "who", "whom", "which"}
 
 NEGATION_WORDS = {
-    'not', 'no', 'nor', 'never',
-    "isn", "aren", "wasn", "weren",
-    "hasn", "haven", "hadn",
-    "doesn", "don", "didn",
-    "couldn", "wouldn", "shouldn",
-    "won", "can", "cannot",
-    "mustn", "needn", "shan", "t"
+    "not",
+    "no",
+    "nor",
+    "never",
+    "isn",
+    "aren",
+    "wasn",
+    "weren",
+    "hasn",
+    "haven",
+    "hadn",
+    "doesn",
+    "don",
+    "didn",
+    "couldn",
+    "wouldn",
+    "shouldn",
+    "won",
+    "can",
+    "cannot",
+    "mustn",
+    "needn",
+    "shan",
+    "t",
 }
 
 WORDS_TO_PRESERVE = QUESTION_WORDS | NEGATION_WORDS
@@ -55,16 +68,18 @@ STOP_WORDS = set(stopwords.words("english")) - WORDS_TO_PRESERVE
 
 EMOJI_PATTERN = re.compile(
     "["
-    "\U0001F600-\U0001F64F"  # emoticons
-    "\U0001F300-\U0001F5FF"  # symbols & pictographs
-    "\U0001F680-\U0001F6FF"  # transport & map symbols
-    "\U0001F1E0-\U0001F1FF"  # flags (iOS)
+    "\U0001f600-\U0001f64f"  # emoticons
+    "\U0001f300-\U0001f5ff"  # symbols & pictographs
+    "\U0001f680-\U0001f6ff"  # transport & map symbols
+    "\U0001f1e0-\U0001f1ff"  # flags (iOS)
     "]+",
     flags=re.UNICODE,
 )
 LINK_PATTERN = re.compile(r"http\S+|www\S+")
 
-QUESTION_MARK_PATTERN = re.compile(r"(?<=[a-z])\?(?=\s|$)")     # "?" ending a word, not "[?:?]" in stack traces
+QUESTION_MARK_PATTERN = re.compile(
+    r"(?<=[a-z])\?(?=\s|$)"
+)  # "?" ending a word, not "[?:?]" in stack traces
 
 
 def remove_emojis_and_links(text):

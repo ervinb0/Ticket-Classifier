@@ -1,5 +1,7 @@
 from sqlalchemy import Column, String, Text
+
 from models.database import Base
+
 
 class Prediction(Base):
     __tablename__ = "predictions"

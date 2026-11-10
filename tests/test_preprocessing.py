@@ -2,23 +2,25 @@ from models.text_pre_processor import preprocess_text
 
 
 def test_removes_links_and_numbers():
-    result = preprocess_text("Crash on startup, see https://github.com/org/repo/issues/42 for logs 123")
+    result = preprocess_text(
+        "Crash on startup, see https://github.com/org/repo/issues/42 for logs 123"
+    )
     assert "http" not in result
     assert "github" not in result
     assert "123" not in result
     assert "crash" in result
-    
-    
+
+
 def test_transforms_question_marks_to_words():
     result = preprocess_text("Why does this happen?")
     assert "qmark" in result
-    
+
 
 def test_only_question_marks_that_end_a_word_in_prose_count():
     result = preprocess_text("Why does it crash? at Main.run(Main.java:5) ~[?:?] ?? ??:0")
-    assert result.split().count("qmark") == 1   # only the one after "crash"
-    
-    
+    assert result.split().count("qmark") == 1  # only the one after "crash"
+
+
 def test_question_marks_in_links_are_removed():
     result = preprocess_text("See https://example.com/why-is-this-happening?")
     assert "qmark" not in result

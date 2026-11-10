@@ -1,0 +1,16 @@
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["archive", "notebooks"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",    # pycodestyle: basic style errors and whitespace
+    "F",         # pyflakes: unused imports, undefined names (real bugs)
+    "I",         # isort: sorted imports
+    "UP",        # pyupgrade: modern syntax for the Python version
+    "B",         # bugbear: common bug patterns
+    "BLE",       # blind `except Exception`
+    "PLR0402",   # `import a.b as b` → `from a import b`
+]
+ignore = ["E501"]   # line length is handled by `ruff format`
