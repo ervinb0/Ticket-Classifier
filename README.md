@@ -1,6 +1,15 @@
 # 🏷️ Issue Classifier
 
+[![CI](https://github.com/ervinb0/Ticket-Classifier/actions/workflows/ci.yml/badge.svg)](https://github.com/ervinb0/Ticket-Classifier/actions/workflows/ci.yml)
+
 A web app that classifies software issue reports (bug trackers like GitHub Issues or Jira) as **bug**, **enhancement** or **question** from their title and description. Users can correct a wrong prediction; corrections are stored so they can be used for retraining.
+
+**Live demo:** https://ticket-classifier-f6wp.onrender.com
+(free tier: after a quiet period, the first request can take a minute or two while the service wakes up and loads the model)
+
+|       1. Describe the issue        |                 2. Get a prediction                  |          3. Confirm or correct it           |
+| :--------------------------------: | :--------------------------------------------------: | :-----------------------------------------: |
+| ![Issue form](docs/1-describe.png) | ![Prediction with probabilities](docs/2-predict.png) | ![Confirmed prediction](docs/3-confirm.png) |
 
 ## How it works
 
@@ -88,6 +97,30 @@ the analysis in [`notebooks/01_eda.ipynb`](notebooks/01_eda.ipynb) and
 - **Reproducible experiments.** Preprocessing is cached under a hash of the data _and_ the code;
   every run logs its preprocessing version, settings and metrics to MLflow.
 
+## Deployment
+
+The app runs on [Render](https://render.com) (Docker, free tier: 512 MB RAM, 0.1 CPU) with a
+[Neon](https://neon.tech) serverless Postgres database. The model is downloaded at build time from a
+[GitHub release](https://github.com/ervinb0/Ticket-Classifier/releases), so the image always contains
+a known, versioned model.
+
+**Pipeline:** pull request → CI (ruff, pytest, then a Docker job that starts the app with Postgres,
+waits for `/api/health` and sends a real prediction) → merge to `main` → Render builds and deploys
+automatically, switching traffic only once the health check passes.
+
+Before deploying, I ran the container with the free tier's limits (`--cpus 0.1 --memory 512m`):
+
+| Constraint                    | Measured                                                                          | Decision                                                  |
+| ----------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| 512 MB RAM                    | ~350 MB per gunicorn worker                                                       | one worker in production, two locally (`WEB_CONCURRENCY`) |
+| 0.1 CPU                       | first prediction loads WordNet and langdetect: ~105 s locally, ~30–40 s on Render | worker timeout raised from 30 s to 300 s                  |
+| Neon suspends idle databases  | pooled connections go stale                                                       | `pool_pre_ping` checks each connection before use         |
+| Public API, single worker     | one huge request could block it for minutes                                       | 100 KB request limit (JSON `413`)                         |
+| Several workers start at once | two workers raced to create the tables                                            | tables are created once before gunicorn starts            |
+
+With a paid instance I would run several workers, warm the model up before accepting traffic, and add
+rate limiting.
+
 ## Limitations
 
 - **Label noise.** In the error analysis, 12 of 20 confident mistakes and 9 of 20 missed questions
@@ -104,6 +137,10 @@ the analysis in [`notebooks/01_eda.ipynb`](notebooks/01_eda.ipynb) and
 - **About 20 near-duplicates per split remain** after normalized-text deduplication.
 - **Sentence embeddings were not evaluated.** The error analysis suggests a small expected gain,
   and shipping them would add PyTorch (~1 GB image) to the service.
+- **Cold starts.** The free tier sleeps after ~15 minutes without traffic; the first request after that
+  waits for the service to start and the model to load.
+- **No authentication or rate limiting.** The public API accepts any request up to 100 KB, and every
+  prediction is stored.
 
 ## Quickstart
 
@@ -142,12 +179,13 @@ Configuration is done with environment variables: `PORT` (default 8000), `MODEL_
 
 ## Tech stack
 
-Python, pandas, scikit-learn, NLTK, langdetect, MLflow, Flask, SQLAlchemy, pytest, GitHub Actions.
+Python, pandas, scikit-learn, NLTK, langdetect, MLflow, Flask, SQLAlchemy, PostgreSQL, gunicorn,
+Docker, docker compose, pytest, ruff, GitHub Actions, Render, Neon.
 
 ## Roadmap
 
 - [x] Baselines and model comparison (majority class, Random Forest, linear models)
 - [x] Improve recall on `question` (0.15 → 0.54 on test)
-- [ ] Docker image and public deployment
+- [x] Docker image, CI smoke test and public deployment
 - [ ] Retraining pipeline that uses stored user corrections
 - [ ] Monitoring of live predictions
