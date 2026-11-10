@@ -23,3 +23,27 @@ jobs:
           ruff format --check .
       - name: Run tests
         run: pytest --cov=app --cov=models --cov-report=term-missing
+  docker:
+    runs-on: ubuntu-latest
+    needs: test
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker Compose
+        run: docker compose up -d --build
+      - name: Wait for the app to be ready
+        run: |
+          curl --fail --silent --retry 15 --retry-delay 2 --retry-connrefused \
+          http://localhost:8000/api/health
+      - name: POST request to the API
+        run: |
+          response=$(curl --fail --silent -X POST http://localhost:8000/api/predict \
+            -H "Content-Type: application/json" \
+            -d '{"title": "How do I reset my password?", "body": "I cannot find the option in the settings"}')
+          echo "$response"
+          echo "$response" | grep -q '"predicted_label"'
+      - name: Show container logs
+        if: failure()
+        run: docker compose logs
+      - name: Docker Compose Down
+        run: docker compose down -v
