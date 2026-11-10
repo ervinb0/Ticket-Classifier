@@ -33,7 +33,7 @@ jobs:
         run: docker compose up -d --build
       - name: Wait for the app to be ready
         run: |
-          curl --fail --silent --retry 15 --retry-delay 2 --retry-connrefused \
+          curl --fail --silent --retry 15 --retry-delay 2 --retry-all-errors \
           http://localhost:8000/api/health
       - name: POST request to the API
         run: |
@@ -46,4 +46,5 @@ jobs:
         if: failure()
         run: docker compose logs
       - name: Docker Compose Down
+        if: always()
         run: docker compose down -v
