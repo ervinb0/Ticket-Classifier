@@ -29,4 +29,4 @@ USER appuser
 
 # 8. Start the server
 EXPOSE 8000
-CMD ["sh", "-c", "python -c 'from models.database import init_db; init_db()' && exec gunicorn --bind 0.0.0.0:8000 --workers 2 app:app"]
+CMD ["sh", "-c", "python -c 'from models.database import init_db; init_db()' && exec gunicorn --bind 0.0.0.0:${PORT:-8000} app:app"]
